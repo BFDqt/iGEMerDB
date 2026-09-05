@@ -1,94 +1,21 @@
-<!DOCTYPE html>
-<html lang="zh-cn">
+<!doctype html>
+<html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>OIerDb NG</title>
     <meta
       name="description"
-      content="OIerDb 是中国信息学竞赛选手的一个数据库。你能够在这个网站上查询选手们的获奖记录，目前可以通过姓名、姓名首字母缩写、省份、年级和学校来进行查询。"
+      content="iGEMerDB：可检索的 iGEM 队伍、公开成员、机构与竞赛资料库。"
     />
-    <script>
-      window.appVersion = '<%= appVersion %>';
-    </script>
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
-    <link rel="manifest" href="/site.webmanifest">
-    <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#a8a8a8">
-    <meta name="msapplication-TileColor" content="#a8a8a8">
-    <meta name="theme-color" content="#ffffff" />
-    <meta rel="canonical" href="https://oier.baoshuo.dev" />
+    <meta name="theme-color" content="#f3f1eb" />
+    <meta name="color-scheme" content="light" />
+    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <title>iGEMerDB — iGEM 竞赛资料库</title>
   </head>
-
   <body>
-    <div id="app">
-      <style>
-        body {
-          padding-top: 50px;
-        }
-      </style>
-
-      <!-- header -->
-      <div class="ui borderless top fixed menu">
-        <div class="ui container">
-          <a class="item" href="/">
-            <img src="/logo.png" style="margin-right: 0.75em" />
-            <div style="font-size: 20px"><b>OIerDb</b></div>
-          </a>
-        </div>
-      </div>
-
-      <!-- loading -->
-      <div class="ui container" style="padding: 1.5rem 1.5rem 0.5rem">
-        <div class="ui segment" style="height: 100px">
-          <div class="ui active transition visible inverted dimmer">
-            <div class="content">
-              <div class="ui medium text loader">Loading...</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- footer -->
-      <div class="ui vertical segment">
-        <div class="ui center aligned container">
-          <div style="color: #888; font-size: 0.8em">
-            <code><%= appVersion.substring(0, 7) %></code>
-            &nbsp;
-            <a
-              href="https://github.com/renbaoshuo/OIerDb"
-              title="GitHub"
-              target="_blank"
-              rel="noreferrer noopener"
-              style="color: inherit"
-            >
-              <i aria-hidden="true" class="github icon"></i>
-              Source Code
-            </a>
-          </div>
-          <div style="margin-top: 0.75rem">
-            Made with 💖 by
-            <a
-              href="https://baoshuo.ren/?utm_source=oier.baoshuo.dev"
-              target="_blank"
-              rel="noreferrer"
-              >Baoshuo</a
-            >,
-            <a href="https://men.ci" target="_blank" rel="noreferrer">Menci</a>,
-            <a href="https://bytew.net" target="_blank" rel="noreferrer"
-              >nocriz</a
-            >
-            and
-            <a
-              href="https://github.com/yhx-12243"
-              target="_blank"
-              rel="noreferrer"
-              >yhx-12243</a
-            >
-          </div>
-        </div>
-      </div>
-    </div>
+    <a class="skip-link" href="#main-content">跳到主要内容</a>
+    <div id="app"></div>
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

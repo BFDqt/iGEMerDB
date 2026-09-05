@@ -1,59 +1,169 @@
-name: Deploy
+name: Deploy verified release
 
 on:
-  push:
+  workflow_run:
+    workflows:
+      - Quality Gate
+    types:
+      - completed
     branches:
       - master
-  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
 
 jobs:
   deploy:
-    name: Build & Deploy
+    name: Stage, activate & verify
+    if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
+    environment: production
+    env:
+      RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Download the exact artifact that passed Quality Gate
+        uses: actions/download-artifact@v8
         with:
-          fetch-depth: 0
+          name: production-dist-${{ github.event.workflow_run.head_sha }}
+          path: dist
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
 
-      - uses: actions/cache@v4
+      - name: Verify release payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f dist/index.html
+          test -f dist/data/web/core.json
+          test -f dist/data/web/manifest.json
+          printf '%s\n' "$RELEASE_SHA" > dist/.release
+
+      - name: Stage release in Tokyo
+        uses: easingthemes/ssh-deploy@v6.0.1
         with:
-          path: '**/node_modules'
-          key: ${{ runner.os }}-modules-${{ hashFiles('**/yarn.lock') }}-${{ hashFiles('patches/**') }}
-
-      - name: Use Node.js 16
-        uses: actions/setup-node@v4
-        with:
-          node-version: 16
-          cache: yarn
-
-      - name: Install Dependencies
-        run: yarn install
-
-      - name: Build Site
-        run: yarn build
-        env:
-          VITE_BAOSHUO_CDNJS: true
-
-      - name: Deploy site to server (Tokyo, JP)
-        uses: easingthemes/ssh-deploy@v2.1.5
-        env:
-          ARGS: '-avz --delete'
-          SOURCE: dist/
+          ARGS: '-rlgoDzvc --delete'
+          SOURCE: 'dist/'
           REMOTE_HOST: ${{ secrets.REMOTE_HOST }}
           REMOTE_USER: ${{ secrets.REMOTE_USER }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          TARGET: ${{ secrets.REMOTE_PATH }}
-          EXCLUDE: .git,.github,.gitlab-ci.yml,.nojekyll
+          TARGET: '${{ secrets.REMOTE_PATH }}/releases/${{ env.RELEASE_SHA }}/'
+          EXCLUDE: '.git,.github'
+          SCRIPT_BEFORE: >-
+            mkdir -p '${{ secrets.REMOTE_PATH }}/releases/${{ env.RELEASE_SHA }}'
+          SCRIPT_BEFORE_REQUIRED: true
 
-      - name: Deploy site to server (Hong Kong, CN)
-        uses: easingthemes/ssh-deploy@v2.1.5
-        env:
-          ARGS: '-avz --delete'
-          SOURCE: dist/
+      - name: Stage release in Hong Kong
+        uses: easingthemes/ssh-deploy@v6.0.1
+        with:
+          ARGS: '-rlgoDzvc --delete'
+          SOURCE: 'dist/'
           REMOTE_HOST: ${{ secrets.REMOTE_HOST_2 }}
           REMOTE_USER: ${{ secrets.REMOTE_USER }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          TARGET: ${{ secrets.REMOTE_PATH }}
-          EXCLUDE: .git,.github,.gitlab-ci.yml,.nojekyll
+          TARGET: '${{ secrets.REMOTE_PATH }}/releases/${{ env.RELEASE_SHA }}/'
+          EXCLUDE: '.git,.github'
+          SCRIPT_BEFORE: >-
+            mkdir -p '${{ secrets.REMOTE_PATH }}/releases/${{ env.RELEASE_SHA }}'
+          SCRIPT_BEFORE_REQUIRED: true
+
+      - name: Atomically activate Tokyo release
+        uses: easingthemes/ssh-deploy@v6.0.1
+        with:
+          ARGS: '-rlgoDzvc'
+          SOURCE: 'dist/.release'
+          REMOTE_HOST: ${{ secrets.REMOTE_HOST }}
+          REMOTE_USER: ${{ secrets.REMOTE_USER }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          TARGET: '${{ secrets.REMOTE_PATH }}/releases/${{ env.RELEASE_SHA }}/'
+          SCRIPT_AFTER: |
+            set -eu
+            root='${{ secrets.REMOTE_PATH }}'
+            release="$root/releases/${{ env.RELEASE_SHA }}"
+            test -f "$release/index.html"
+            if [ -L "$root/current" ]; then readlink "$root/current" > "$root/.previous-release"; fi
+            ln -sfn "$release" "$root/.current-next"
+            mv -Tf "$root/.current-next" "$root/current"
+            test -f "$root/current/data/web/core.json"
+          SCRIPT_AFTER_REQUIRED: true
+
+      - name: Atomically activate Hong Kong release
+        uses: easingthemes/ssh-deploy@v6.0.1
+        with:
+          ARGS: '-rlgoDzvc'
+          SOURCE: 'dist/.release'
+          REMOTE_HOST: ${{ secrets.REMOTE_HOST_2 }}
+          REMOTE_USER: ${{ secrets.REMOTE_USER }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          TARGET: '${{ secrets.REMOTE_PATH }}/releases/${{ env.RELEASE_SHA }}/'
+          SCRIPT_AFTER: |
+            set -eu
+            root='${{ secrets.REMOTE_PATH }}'
+            release="$root/releases/${{ env.RELEASE_SHA }}"
+            test -f "$release/index.html"
+            if [ -L "$root/current" ]; then readlink "$root/current" > "$root/.previous-release"; fi
+            ln -sfn "$release" "$root/.current-next"
+            mv -Tf "$root/.current-next" "$root/current"
+            test -f "$root/current/data/web/core.json"
+          SCRIPT_AFTER_REQUIRED: true
+
+      - name: HTTP health checks
+        if: ${{ secrets.PUBLIC_URL != '' && secrets.PUBLIC_URL_2 != '' }}
+        env:
+          PUBLIC_URL: ${{ secrets.PUBLIC_URL }}
+          PUBLIC_URL_2: ${{ secrets.PUBLIC_URL_2 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for url in "$PUBLIC_URL" "$PUBLIC_URL_2"; do
+            curl --fail --location --retry 4 --retry-all-errors \
+              --max-time 20 "$url/data/web/manifest.json" >/dev/null
+          done
+
+      - name: Roll back both regions if activation or health check fails
+        if: failure()
+        uses: easingthemes/ssh-deploy@v6.0.1
+        with:
+          ARGS: '-rlgoDzvc'
+          SOURCE: 'dist/.release'
+          REMOTE_HOST: ${{ secrets.REMOTE_HOST }}
+          REMOTE_USER: ${{ secrets.REMOTE_USER }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          TARGET: '${{ secrets.REMOTE_PATH }}/'
+          SCRIPT_AFTER: |
+            set -eu
+            root='${{ secrets.REMOTE_PATH }}'
+            if [ -s "$root/.previous-release" ]; then
+              previous=$(cat "$root/.previous-release")
+              test -f "$previous/index.html"
+              ln -sfn "$previous" "$root/.rollback-next"
+              mv -Tf "$root/.rollback-next" "$root/current"
+            fi
+          SCRIPT_AFTER_REQUIRED: true
+
+      - name: Roll back Hong Kong region if release failed
+        if: failure()
+        uses: easingthemes/ssh-deploy@v6.0.1
+        with:
+          ARGS: '-rlgoDzvc'
+          SOURCE: 'dist/.release'
+          REMOTE_HOST: ${{ secrets.REMOTE_HOST_2 }}
+          REMOTE_USER: ${{ secrets.REMOTE_USER }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          TARGET: '${{ secrets.REMOTE_PATH }}/'
+          SCRIPT_AFTER: |
+            set -eu
+            root='${{ secrets.REMOTE_PATH }}'
+            if [ -s "$root/.previous-release" ]; then
+              previous=$(cat "$root/.previous-release")
+              test -f "$previous/index.html"
+              ln -sfn "$previous" "$root/.rollback-next"
+              mv -Tf "$root/.rollback-next" "$root/current"
+            fi
+          SCRIPT_AFTER_REQUIRED: true

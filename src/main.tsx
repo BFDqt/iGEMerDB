@@ -1,115 +1,47 @@
-import React, { lazy, Suspense, useEffect, useState } from 'react';
-import { createRoot } from 'react-dom/client';
-import { Helmet } from 'react-helmet';
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
-import { Container } from 'semantic-ui-react';
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
+import { App } from './app/App';
+import { loadCoreDatabase } from './app/dataBundles';
+import './styles.css';
 
-import {
-  ErrorWhenLoadingOIerDb,
-  NotSupportIndexedDB,
-} from '@/components/Errors';
-import Footer from '@/components/Footer';
-import Header from '@/components/Header';
-import Loading from '@/components/Loading';
-import { initDb } from '@/libs/OIerDb';
-import {
-  enableAutoPageviews,
-  enableAutoTrackMultiDomain,
-} from '@/libs/plausible';
+const root = document.getElementById('app');
 
-// Pages
-const Home = lazy(() => import('@/pages/index'));
-const OIerList = lazy(() => import('@/pages/oier/index'));
-const PersonInfo = lazy(() => import('@/pages/oier/[uid]'));
-const SchoolList = lazy(() => import('@/pages/school/index'));
-const SchoolInfo = lazy(() => import('@/pages/school/[id]'));
-const Contest = lazy(() => import('@/pages/contest'));
-const ContestInfo = lazy(() => import('@/pages/contest/[id]'));
-const CustomSearch = lazy(() => import('@/pages/custom-search'));
-const NotFound = lazy(() => import('@/pages/404'));
-const About = lazy(() => import('@/pages/about'));
+if (!root) throw new Error('Application root was not found.');
 
-// Styles
-import './main.less';
-import styles from './main.module.less';
+const reactRoot = ReactDOM.createRoot(root);
 
-// 是否支持 indexedDB
-const notSupportIndexedDB = !globalThis || !globalThis.indexedDB;
-
-// 取消注册先前的 Service Worker
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations().then((registrations) => {
-    for (const registration of registrations) {
-      registration.unregister();
-    }
-  });
+function renderStatus(title: string, detail: string) {
+  reactRoot.render(
+    <main className="boot-status" aria-live="polite">
+      <span>iGEMerDB / DATA ARCHIVE</span>
+      <h1>{title}</h1>
+      <p>{detail}</p>
+    </main>,
+  );
 }
 
-const App: React.FC = () => {
-  const [loadedOIerDb, setLoadedOIerDb] = useState(false);
-  const [errorLoadingOIerDb, setErrorLoadingOIerDb] = useState(false);
-  const [progress, setProgress] = useState(0);
-
-  useEffect(() => {
-    (async () => {
-      // 加载 OIerDb
-      try {
-        window.OIerDb = await initDb(setProgress);
-        setLoadedOIerDb(true);
-      } catch (e) {
-        console.error(e);
-        setErrorLoadingOIerDb(true);
-      }
-    })();
-  }, []);
-
-  useEffect(() => enableAutoPageviews(), []);
-  useEffect(() => enableAutoTrackMultiDomain(), []);
-
-  // 不支持 indexedDB
-  if (notSupportIndexedDB) {
-    return <NotSupportIndexedDB />;
-  }
-
-  // 加载失败时的提示信息
-  if (!loadedOIerDb && errorLoadingOIerDb) {
-    return <ErrorWhenLoadingOIerDb />;
-  }
-
-  // 加载中
-  if (!loadedOIerDb) {
-    return <Loading progress={progress} />;
-  }
-
-  return (
-    <Suspense fallback={<Loading />}>
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/oier" element={<Navigate replace to="/oiers" />} />
-        <Route path="/oiers" element={<OIerList />} />
-        <Route path="/oier/:uid" element={<PersonInfo />} />
-        <Route path="/school" element={<Navigate replace to="/schools" />} />
-        <Route path="/schools" element={<SchoolList />} />
-        <Route path="/school/:id" element={<SchoolInfo />} />
-        <Route path="/contest" element={<Navigate replace to="/contests" />} />
-        <Route path="/contests" element={<Contest />} />
-        <Route path="/contest/:id" element={<ContestInfo />} />
-        <Route path="/custom-search" element={<CustomSearch />} />
-        <Route path="/about" element={<About />} />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </Suspense>
-  );
-};
-
-const rootElement = document.getElementById('app');
-createRoot(rootElement).render(
-  <BrowserRouter>
-    <Helmet defaultTitle="OIerDb NG" titleTemplate="%s - OIerDb NG" />
-    <Header />
-    <Container className={styles.container}>
-      <App />
-    </Container>
-    <Footer />
-  </BrowserRouter>
+renderStatus(
+  '正在打开竞赛档案',
+  '载入队伍目录与年度索引；详细名单将在需要时读取。',
 );
+
+loadCoreDatabase()
+  .then(() => {
+    reactRoot.render(
+      <React.StrictMode>
+        <BrowserRouter
+          future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
+        >
+          <App />
+        </BrowserRouter>
+      </React.StrictMode>,
+    );
+  })
+  .catch((error: unknown) => {
+    const message = error instanceof Error ? error.message : '未知错误';
+    renderStatus(
+      '档案载入失败',
+      `${message}。请确认 /data/web/core.json 已随站点发布。`,
+    );
+  });

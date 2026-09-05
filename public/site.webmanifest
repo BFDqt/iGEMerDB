@@ -1,1 +1,17 @@
-{"background_color":"#ffffff","display":"standalone","icons":[{"sizes":"192x192","src":"/android-chrome-192x192.png","type":"image/png"},{"sizes":"512x512","src":"/android-chrome-512x512.png","type":"image/png"}],"name":"OIerDb NG","short_name":"OIerDb NG","theme_color":"#ffffff"}
+{
+  "name": "iGEMerDB — iGEM 竞赛资料库",
+  "short_name": "iGEMerDB",
+  "description": "可检索的 iGEM 队伍、公开成员、机构与奖项资料库。",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f1f0ea",
+  "theme_color": "#075c4b",
+  "icons": [
+    {
+      "src": "/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
