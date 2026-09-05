@@ -82,8 +82,8 @@
 - [x] `dist/` 包含 SPA 入口、带 hash 的资源、完整审计快照和按需分片；
 - [x] GitHub Actions 配置为上传质量门禁产生的精确 SHA artifact；
 - [x] 部署配置为双区域 staging、原子 current 切换、健康检查与失败回滚；
-- [ ] 远端 GitHub Actions 尚未在本次本地任务中实际运行；
-- [ ] Tokyo / Hong Kong 的真实部署与回滚演练需要服务器密钥和生产权限；
+- [x] 远端 Quality Gate 已于 2026-09-06 在公开镜像仓库 `BFDqt/iGEMerDB` 实际运行并通过（干净 checkout：前端 check、采集器测试、发布快照校验、Chromium e2e 全绿，产物 `production-dist-<sha>` 已上传）。上游 `OIerDb-ng/OIerDb` 为无写权限的第三方活跃项目，交付以镜像仓库为准；
+- [ ] Tokyo / Hong Kong 的真实部署与回滚演练需要服务器密钥和生产权限；镜像仓库未配置 `production` 环境，deploy 工作流已被禁用（`gh workflow enable deploy.yml` + 配置密钥后可启用）；
 - [ ] 2004–2007 历史奖项需要多来源补录，当前产品保持 Preview 标识。
 
 ## 2.0.0-beta.1 交付物
