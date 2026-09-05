@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import { vi } from 'vitest';
-import source from '../../../tools/igem_scraper/data/test_export.json';
+import source from './fixtures/test_export.json';
 import { initializeDatabase } from '../data';
 import type { RawDataset } from '../types';
 
