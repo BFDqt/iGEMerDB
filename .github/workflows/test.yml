@@ -75,7 +75,7 @@ jobs:
           npm run preview -- --host 127.0.0.1 --port 4173 --strictPort > /tmp/igemerdb-preview.log 2>&1 &
           preview_pid=$!
           serve_pid=""
-          trap 'kill "$preview_pid" ${serve_pid:+"$serve_pid"}' EXIT
+          trap 'kill "$preview_pid" ${serve_pid:+"$serve_pid"} 2>/dev/null || true' EXIT
           for attempt in {1..30}; do
             if curl --fail --silent http://127.0.0.1:4173/ > /dev/null; then
               break
@@ -113,11 +113,11 @@ jobs:
       - name: Accessibility axe scan (strict)
         shell: bash
         run: |
-          npm run preview -- --host 127.0.0.1 --port 4173 --strictPort > /tmp/igemerdb-preview-axe.log 2>&1 &
+          npm run preview -- --host 127.0.0.1 --port 4174 --strictPort > /tmp/igemerdb-preview-axe.log 2>&1 &
           preview_pid=$!
-          trap 'kill "$preview_pid"' EXIT
+          trap 'kill "$preview_pid" 2>/dev/null || true' EXIT
           for attempt in {1..30}; do
-            if curl --fail --silent http://127.0.0.1:4173/ > /dev/null; then
+            if curl --fail --silent http://127.0.0.1:4174/ > /dev/null; then
               break
             fi
             if [ "$attempt" -eq 30 ]; then
@@ -126,7 +126,7 @@ jobs:
             fi
             sleep 1
           done
-          npm run test:axe
+          BASE_URL=http://127.0.0.1:4174 npm run test:axe
 
       - name: Upload browser diagnostics on failure
         if: failure()
