@@ -76,4 +76,37 @@ describe('CompetitionPage', () => {
     renderRoute('/competition?year=2026');
     expect(screen.getByText('未公开 / 无返回')).toBeInTheDocument();
   });
+
+  it('switches the year through the filter panel', async () => {
+    const user = userEvent.setup();
+    renderRoute('/competition?year=2025');
+    await user.selectOptions(screen.getByLabelText('选择年份'), '2024');
+    expect(
+      screen.getByRole('heading', { name: '2024 年度概览' }),
+    ).toBeInTheDocument();
+  });
+});
+
+describe('AwardsPage interactions', () => {
+  it('switches the decision filter through the panel', async () => {
+    const user = userEvent.setup();
+    renderRoute('/awards?year=2025&decision=winner');
+    await user.selectOptions(screen.getByLabelText('结果'), 'nominee');
+    expect(document.querySelector('.record-count')?.textContent).toMatch(
+      /^\d[\d,]* 条队伍结果$/,
+    );
+    expect(screen.queryByText('13 条队伍结果')).not.toBeInTheDocument();
+  });
+});
+
+describe('PeoplePage pagination', () => {
+  it('pages through the member index', async () => {
+    const user = userEvent.setup();
+    renderRoute('/people');
+    const next = screen.getByRole('button', { name: '下一页' });
+    await user.click(next);
+    expect(
+      screen.getByRole('button', { name: '2' }),
+    ).toHaveAttribute('aria-current', 'page');
+  });
 });
