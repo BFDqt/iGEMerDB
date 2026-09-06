@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import time
+from urllib.parse import quote
 
 from playwright.sync_api import Page, expect, sync_playwright
 
@@ -46,6 +47,60 @@ def load_expected() -> dict[str, int]:
 
 
 EXPECTED = load_expected()
+
+
+def load_detail_fixtures() -> dict[str, object]:
+    snapshot = json.loads(
+        (PROJECT_ROOT / "public" / "data" / "igem.json").read_text(encoding="utf-8")
+    )
+    visible_team_ids = {
+        team["id"] for team in snapshot["teams"] if team.get("default_visible", True)
+    }
+    membership_counts: dict[str, int] = {}
+    for entry in snapshot["roster"]:
+        if entry["team_id"] in visible_team_ids:
+            membership_counts[entry["member_uuid"]] = (
+                membership_counts.get(entry["member_uuid"], 0) + 1
+            )
+    person_uuid, person_team_count = sorted(
+        membership_counts.items(), key=lambda item: (-item[1], item[0])
+    )[0]
+    person = next(
+        member
+        for member in snapshot["members"]
+        if member["uuid"] == person_uuid
+    )
+
+    institution_teams: dict[str, int] = {}
+    for team in snapshot["teams"]:
+        if team["id"] not in visible_team_ids:
+            continue
+        for item in team.get("institutions") or []:
+            if item.get("name"):
+                institution_teams[item["name"]] = (
+                    institution_teams.get(item["name"], 0) + 1
+                )
+    institution_name, institution_team_count = sorted(
+        institution_teams.items(), key=lambda item: (-item[1], item[0])
+    )[0]
+
+    withdrawn = next(
+        team
+        for team in snapshot["teams"]
+        if team.get("export_category") == "withdrawn"
+    )
+    return {
+        "person_uuid": person_uuid,
+        "person_name": person["name"],
+        "person_team_count": person_team_count,
+        "institution_name": institution_name,
+        "institution_team_count": institution_team_count,
+        "withdrawn_id": withdrawn["id"],
+        "withdrawn_name": withdrawn["name"],
+    }
+
+
+DETAILS = load_detail_fixtures()
 
 
 def attach_diagnostics(page: Page, issues: list[str]) -> None:
@@ -162,6 +217,57 @@ def run_desktop(browser, issues: list[str]) -> dict[str, int]:
     return {"desktop_ready_ms": ready_ms}
 
 
+def run_detail_routes(browser, issues: list[str]) -> None:
+    page = browser.new_page(viewport={"width": 1440, "height": 1000})
+    attach_diagnostics(page, issues)
+
+    # Person detail: the member with the widest cross-year footprint.
+    page.goto(
+        f"{BASE_URL}/people/{DETAILS['person_uuid']}", wait_until="domcontentloaded"
+    )
+    wait_for_app(page)
+    expect(
+        page.get_by_role("heading", name=DETAILS["person_name"], exact=True)
+    ).to_be_visible()
+    expect(page.get_by_role("heading", name="参赛记录", exact=True)).to_be_visible()
+    expect(page.get_by_role("heading", name="公开资料", exact=True)).to_be_visible()
+    assert DETAILS["person_team_count"] >= 1
+    assert_no_horizontal_overflow(page)
+
+    # Institution detail: the official institution with the most linked teams.
+    page.goto(
+        f"{BASE_URL}/institutions/{quote(str(DETAILS['institution_name']))}",
+        wait_until="domcontentloaded",
+    )
+    wait_for_app(page)
+    expect(
+        page.get_by_role(
+            "heading", name=str(DETAILS["institution_name"]), exact=True
+        )
+    ).to_be_visible()
+    expect(
+        page.get_by_role("heading", name="官方字段关联队伍", exact=True)
+    ).to_be_visible()
+    expect(
+        page.get_by_text(f'{DETAILS["institution_team_count"]} 条', exact=True)
+    ).to_be_visible()
+    assert_no_horizontal_overflow(page)
+
+    # A withdrawn team reached by direct URL keeps its quarantine warning.
+    page.goto(
+        f"{BASE_URL}/teams/{DETAILS['withdrawn_id']}", wait_until="domcontentloaded"
+    )
+    wait_for_app(page)
+    expect(
+        page.get_by_role("heading", name=str(DETAILS["withdrawn_name"]), exact=True)
+    ).to_be_visible()
+    expect(page.locator(".team-status-alert")).to_be_visible()
+    expect(page.locator(".team-status.prominent")).to_have_text("已撤回")
+
+    page.screenshot(path=ARTIFACT_DIR / "detail-routes.png", full_page=False)
+    page.close()
+
+
 def run_mobile(browser, issues: list[str]) -> None:
     page = browser.new_page(viewport={"width": 390, "height": 844})
     attach_diagnostics(page, issues)
@@ -189,14 +295,16 @@ def main() -> None:
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
         metrics = run_desktop(browser, issues)
+        run_detail_routes(browser, issues)
         run_mobile(browser, issues)
         browser.close()
 
     if issues:
         raise AssertionError("Browser diagnostics failed:\n" + "\n".join(issues))
     print(
-        "E2E smoke passed: homepage, filters, search, team awards, 404, "
-        f"mobile navigation and overflow ({metrics['desktop_ready_ms']} ms ready)."
+        "E2E smoke passed: homepage, filters, search, team awards, person, "
+        "institution and withdrawn details, 404, mobile navigation and "
+        f"overflow ({metrics['desktop_ready_ms']} ms ready)."
     )
 
 

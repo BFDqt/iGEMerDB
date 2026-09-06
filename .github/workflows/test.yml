@@ -62,7 +62,8 @@ jobs:
         run: |
           npm run preview -- --host 127.0.0.1 --port 4173 --strictPort > /tmp/igemerdb-preview.log 2>&1 &
           preview_pid=$!
-          trap 'kill "$preview_pid"' EXIT
+          serve_pid=""
+          trap 'kill "$preview_pid" ${serve_pid:+"$serve_pid"}' EXIT
           for attempt in {1..30}; do
             if curl --fail --silent http://127.0.0.1:4173/ > /dev/null; then
               break
@@ -78,6 +79,25 @@ jobs:
             PREMIUM_UI_ARTIFACT_DIR=output/ui-premium \
             python tools/e2e/premium_ui_smoke.py
 
+      - name: Throttled-network release acceptance
+        shell: bash
+        run: |
+          python tools/e2e/serve_dist.py --root dist --port 43180 \
+            > /tmp/igemerdb-serve-dist.log 2>&1 &
+          serve_pid=$!
+          trap 'kill "$serve_pid"' EXIT
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:43180/ > /dev/null; then
+              break
+            fi
+            if [ "$attempt" -eq 30 ]; then
+              cat /tmp/igemerdb-serve-dist.log
+              exit 1
+            fi
+            sleep 1
+          done
+          BASE_URL=http://127.0.0.1:43180 python tools/e2e/release_acceptance.py
+
       - name: Upload browser diagnostics on failure
         if: failure()
         uses: actions/upload-artifact@v7
@@ -86,6 +106,7 @@ jobs:
           path: |
             output/e2e/
             output/ui-premium/
+            output/final-product/
           if-no-files-found: ignore
           retention-days: 7
 
