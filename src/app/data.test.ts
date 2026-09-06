@@ -9,17 +9,30 @@ import {
 import type { RawDataset } from './types';
 
 describe('data index', () => {
-  it('builds the verified 2025 snapshot without invented result data', () => {
+  it('builds the multi-year fixture with schema-v3 metadata and awards', () => {
     expect(database.stats).toMatchObject({
-      year: 2025,
-      teamCount: 500,
-      publishedPeopleCount: 51,
-      countryCount: 47,
-      regionCount: 5,
-      awardCount: 47,
+      year: 2026,
+      minYear: 2008,
+      maxYear: 2026,
+      yearCount: 8,
+      teamCount: 26,
+      rawTeamCount: 30,
+      hiddenTeamCount: 4,
+      acceptedTeamCount: 27,
+      withdrawnTeamCount: 2,
+      disqualifiedTeamCount: 1,
+      demoTestTeamCount: 1,
+      publishedPeopleCount: 582,
+      membershipCount: 622,
+      awardCount: 37,
+      teamAwardCount: 55,
+      winningResultCount: 12,
+      medalCount: 19,
     });
-    expect(database.teams.every((team) => team.medal === '')).toBe(true);
-    expect(database.institutions.length).toBeGreaterThanOrEqual(4);
+    const aachen = database.teamById.get(5587);
+    expect(aachen).toMatchObject({ medal: 'gold' });
+    expect(aachen?.awardResults.length).toBeGreaterThan(0);
+    expect(database.institutions.length).toBeGreaterThanOrEqual(26);
   });
 
   it('links public roster entries in both directions', () => {
