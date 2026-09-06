@@ -34,6 +34,18 @@ jobs:
       - name: Frontend quality gate
         run: npm run check
 
+      - name: Frontend coverage gate
+        run: npm run test:coverage
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-report-${{ github.sha }}
+          path: coverage/
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Use Python 3.12
         uses: actions/setup-python@v7
         with:
@@ -97,6 +109,24 @@ jobs:
             sleep 1
           done
           BASE_URL=http://127.0.0.1:43180 python tools/e2e/release_acceptance.py
+
+      - name: Accessibility axe scan (strict)
+        shell: bash
+        run: |
+          npm run preview -- --host 127.0.0.1 --port 4173 --strictPort > /tmp/igemerdb-preview-axe.log 2>&1 &
+          preview_pid=$!
+          trap 'kill "$preview_pid"' EXIT
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:4173/ > /dev/null; then
+              break
+            fi
+            if [ "$attempt" -eq 30 ]; then
+              cat /tmp/igemerdb-preview-axe.log
+              exit 1
+            fi
+            sleep 1
+          done
+          npm run test:axe
 
       - name: Upload browser diagnostics on failure
         if: failure()
