@@ -77,6 +77,7 @@ export function Layout({ children }: { children: ReactNode }) {
               className="search-trigger"
               type="button"
               onClick={() => setSearchOpen(true)}
+              aria-label="全站检索"
               aria-haspopup="dialog"
               aria-expanded={searchOpen}
               aria-controls="global-search-dialog"

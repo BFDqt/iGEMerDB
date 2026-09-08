@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import source from '../../../tools/igem_scraper/data/test_export.json';
+import source from '../test/fixtures/test_export.json';
 import { initializeDatabase } from '../data';
 import type { RawDataset } from '../types';
 import { TeamsPage } from './TeamsPage';

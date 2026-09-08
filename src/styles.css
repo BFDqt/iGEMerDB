@@ -25,13 +25,13 @@
   --surface-strong: #ffffff;
   --ink: #10201a;
   --ink-soft: #33443d;
-  --muted: #65736d;
+  --muted: #5c685f;
   --line: #cbd0c8;
   --line-strong: #929d96;
   --accent: #006753;
   --accent-strong: #004c3e;
   --accent-pale: #e1ebe5;
-  --signal: #b9562f;
+  --signal: #a54c29;
   --dark: #11231d;
   --max-width: 1380px;
 }
@@ -2584,7 +2584,7 @@ svg {
 }
 
 .about-cta > span {
-  color: rgb(255 255 255 / 65%);
+  color: rgb(255 255 255 / 78%);
   font-family: ui-monospace, 'Cascadia Code', monospace;
   font-size: 9px;
   letter-spacing: 0.13em;

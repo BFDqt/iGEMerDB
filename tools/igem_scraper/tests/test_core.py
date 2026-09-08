@@ -15,6 +15,7 @@ from igem_scraper.normalize import (
     person_uid,
     team_name_norm,
 )
+from igem_scraper.models import Competition
 from igem_scraper.upsert import get_insert
 from igem_scraper.team_ingest import _infer_role
 from igem_scraper.publication import classify_team_for_export, is_default_visible
@@ -67,6 +68,67 @@ class NormalizationTests(unittest.TestCase):
         self.assertEqual(classify_team_for_export("Real-Team", "withdrawn"), "withdrawn")
         self.assertTrue(is_default_visible("accepted"))
         self.assertFalse(is_default_visible("demo-test"))
+
+
+
+
+class PublicationCategoryTests(unittest.TestCase):
+    def test_official_statuses_pass_through_unchanged(self) -> None:
+        self.assertEqual(classify_team_for_export("Real Team", "accepted"), "accepted")
+        self.assertEqual(classify_team_for_export("Real Team", "withdrawn"), "withdrawn")
+        self.assertEqual(
+            classify_team_for_export("Real Team", "disqualified"), "disqualified"
+        )
+
+    def test_unknown_statuses_land_in_manual_review(self) -> None:
+        self.assertEqual(classify_team_for_export("Real Team", None), "review")
+        self.assertEqual(classify_team_for_export("Real Team", ""), "review")
+        self.assertEqual(
+            classify_team_for_export("Real Team", "some-new-status"), "review"
+        )
+
+    def test_only_accepted_records_are_default_visible(self) -> None:
+        for category in ("accepted", "withdrawn", "disqualified", "demo-test", "review"):
+            self.assertEqual(is_default_visible(category), category == "accepted")
+
+
+class UpsertWritePathTests(unittest.TestCase):
+    def test_on_conflict_update_keeps_one_row_with_new_values(self) -> None:
+        engine = create_engine_from_url("sqlite://")
+        init_db(engine)
+        insert = get_insert(engine)
+        from sqlalchemy.orm import Session
+
+        statement = (
+            insert(Competition)
+            .values(
+                uuid="00000000-0000-0000-0000-000000002025",
+                year=2025,
+                status="live",
+            )
+            .on_conflict_do_update(index_elements=[Competition.uuid], set_={"status": "live"})
+        )
+        with Session(engine) as session:
+            session.execute(statement)
+            session.commit()
+        update_statement = (
+            insert(Competition)
+            .values(
+                uuid="00000000-0000-0000-0000-000000002025",
+                year=2025,
+                status="archived",
+            )
+            .on_conflict_do_update(
+                index_elements=[Competition.uuid], set_={"status": "archived"}
+            )
+        )
+        with Session(engine) as session:
+            session.execute(update_statement)
+            session.commit()
+            row = session.query(Competition).one()
+            self.assertEqual(row.status, "archived")
+            self.assertEqual(session.query(Competition).count(), 1)
+        engine.dispose()
 
 
 class DatabaseTests(unittest.TestCase):

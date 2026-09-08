@@ -23,7 +23,7 @@ describe('application routes', () => {
         name: '让竞赛记录，成为可以查证的公共档案。',
       }),
     ).toBeInTheDocument();
-    expect(screen.getAllByText('500')[0]).toBeInTheDocument();
+    expect(screen.getAllByText('26')[0]).toBeInTheDocument();
     expect(screen.queryByText(/OIerDb NG/)).not.toBeInTheDocument();
   });
 
@@ -32,7 +32,7 @@ describe('application routes', () => {
     expect(
       screen.getByRole('link', { name: 'Stony-Brook' }),
     ).toBeInTheDocument();
-    expect(screen.getByText('1 条记录')).toBeInTheDocument();
+    expect(screen.getByText('2 条记录')).toBeInTheDocument();
   });
 
   it('opens a team detail page and exposes public roster semantics', () => {

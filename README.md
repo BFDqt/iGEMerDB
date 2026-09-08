@@ -1,10 +1,12 @@
 # iGEMerDB
 
+[![Quality Gate](https://github.com/BFDqt/iGEMerDB/actions/workflows/test.yml/badge.svg)](https://github.com/BFDqt/iGEMerDB/actions/workflows/test.yml)
+
 iGEM 队伍、公开成员、机构与奖项资料的可检索索引。
 
 本次重构将旧 OIerDb 前端和无法运行的 iGEM 示例层完全移出运行路径，以抓取器导出的真实快照为单一事实源。产品不再生成缺乏依据的“评分”或“排名”，缺失数据会在界面中明确标注。
 
-当前快照生成于 2026-09-06，覆盖 2004–2026 共 23 届赛事。原始审计层保留 5,518 支队伍，其中 5,280 支 accepted 队伍进入默认产品视图；191 支 withdrawn、28 支 disqualified 和 19 条 Example/Test 记录被明确隔离但不物理删除。快照还保存 81,719 位公开成员、106,345 条原始名单关系和 7,517 条队伍奖项结果。数据来自 [iGEM Public API](https://api.igem.org/v1/competitions?page=1)，名单公开范围遵循 iGEM 的[官方队伍名单说明](https://competition.igem.org/registration/team-roster)。逐年覆盖、例外和校验摘要见 [数据快照报告](docs/DATASET.md)。
+当前快照生成于 2026-09-09，覆盖 2004–2026 共 23 届赛事。原始审计层保留 5,518 支队伍，其中 5,280 支 accepted 队伍进入默认产品视图；191 支 withdrawn、28 支 disqualified 和 19 条 Example/Test 记录被明确隔离但不物理删除。快照还保存 81,823 位公开成员、106,496 条原始名单关系和 7,517 条队伍奖项结果。数据来自 [iGEM Public API](https://api.igem.org/v1/competitions?page=1)，名单公开范围遵循 iGEM 的[官方队伍名单说明](https://competition.igem.org/registration/team-roster)。逐年覆盖、例外和校验摘要见 [数据快照报告](docs/DATASET.md)。
 
 ## 当前交付
 
@@ -44,6 +46,8 @@ npm run check:all
 npm run lint
 npm run typecheck
 npm run test
+npm run test:coverage
+npm run test:axe
 npm run build
 ```
 
@@ -52,6 +56,8 @@ npm run build
 | `npm run dev`               | 启动开发服务器                   |
 | `npm run test`              | 运行前端领域层与关键路由测试     |
 | `npm run test:watch`        | 监听模式运行测试                 |
+| `npm run test:coverage`     | 运行测试并输出覆盖率（含阈值门禁） |
+| `npm run test:axe`          | 对预览站点执行严格 axe 无障碍扫描 |
 | `npm run lint`              | 检查新前端源码                   |
 | `npm run typecheck`         | 严格 TypeScript 检查             |
 | `npm run build`             | 生成 `dist/` 生产产物            |
@@ -94,7 +100,7 @@ public/data/
 public/data/igem.json
 ```
 
-更新流程是：采集到新数据库 → `validate` 校验所有年度、状态、freshness 与逐队阶段 → 原子导出完整快照 → `validate-export` 校验发布投影 → `build:data` 生成浏览器分片 → `validate:web-data` 检查守恒与包体 → 执行完整门禁和真实 Chromium 验收。单元测试使用固定 fixture，CI 同时解析生产快照与所有发布分片。具体命令见 [采集器文档](tools/igem_scraper/README.md)。
+更新流程是：采集到新数据库 → `validate` 校验所有年度、状态、freshness 与逐队阶段 → 原子导出完整快照 → `validate-export` 校验发布投影 → `build:data` 生成浏览器分片 → `validate:web-data` 检查守恒与包体 → 执行完整门禁和真实 Chromium 验收。前端单元测试 fixture 由 `python tools/make_test_fixture.py` 从生产快照确定性抽样生成，快照刷新后应重新生成；CI 同时解析生产快照与所有发布分片。具体命令见 [采集器文档](tools/igem_scraper/README.md)。
 
 ## 设计说明
 

@@ -21,7 +21,9 @@
     "lint": "eslint \"src/app/**/*.{ts,tsx}\" \"src/main.tsx\"",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"*.{json,md}\"",
     "check": "npm run lint && npm run typecheck && npm run test && npm run build",
-    "check:all": "npm run check && npm run test:scraper && npm run validate:data && npm run validate:web-data"
+    "check:all": "npm run check && npm run test:scraper && npm run validate:data && npm run validate:web-data",
+    "test:coverage": "vitest run --coverage",
+    "test:axe": "python tools/e2e/axe_scan.py"
   },
   "engines": {
     "node": ">=20.19 <25",
@@ -40,12 +42,14 @@
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
     "@typescript-eslint/eslint-plugin": "^8.21.0",
-    "@typescript-eslint/parser": "^8.21.0",
+    "@typescript-eslint/parser": "^8.69.0",
     "@vitejs/plugin-react": "^4.3.4",
+    "@vitest/coverage-v8": "^3.2.7",
+    "axe-core": "^4.13.0",
     "eslint": "^8.57.1",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-react": "^7.37.4",
-    "jsdom": "^26.0.0",
+    "jsdom": "^30.0.1",
     "less": "^4.2.2",
     "prettier": "^3.4.2",
     "typescript": "^5.7.3",

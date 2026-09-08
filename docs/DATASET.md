@@ -1,10 +1,10 @@
 # 数据快照报告
 
-生成时间：2026-09-05 19:38:34 UTC（Asia/Shanghai 03:38:34）  
+生成时间：2026-09-08 16:23:35 UTC（Asia/Shanghai 00:23:35）  
 来源：[iGEM Public API](https://api.igem.org/v1)  
 快照文件：`public/data/igem.json`  
-文件大小：43,203,088 bytes  
-SHA-256：`BAA138FB837D350BE9DA92C2DE914E0D9C9AFE570B2A7CB7D615F2AAF8B861D3`
+文件大小：43,258,608 bytes  
+SHA-256：`CF8F1BEB5DE17A9294D4B2ED53CCF39157ACAE8F16225069106E0FEDE8AED1F8`
 
 ## 总计
 
@@ -13,10 +13,10 @@ SHA-256：`BAA138FB837D350BE9DA92C2DE914E0D9C9AFE570B2A7CB7D615F2AAF8B861D3`
 | 赛事年份               |   23 |
 | 默认可见 accepted 队伍 |  5,280 |
 | raw 审计队伍           |  5,518 |
-| 默认可见公开成员       |  80,027 |
-| raw 公开成员           |  81,719 |
-| 默认可见名单关系       | 103,718 |
-| raw 名单关系           | 106,345 |
+| 默认可见公开成员       |  80,131 |
+| raw 公开成员           |  81,823 |
+| 默认可见名单关系       | 103,869 |
+| raw 名单关系           | 106,496 |
 | 官方队伍机构           |   2,196 |
 | 逐年奖项定义           |     523 |
 | 默认可见队伍奖项结果   |   7,516 |
@@ -70,12 +70,12 @@ SHA-256：`BAA138FB837D350BE9DA92C2DE914E0D9C9AFE570B2A7CB7D615F2AAF8B861D3`
 
 | 派生角色  | 名单关系 |
 | --------- | -------: |
-| Student   |  76,653 |
-| Undergrad |  1,444 |
-| Graduate  |  793 |
-| PI        |  9,617 |
-| Advisor   |  17,101 |
-| Other     |  737 |
+| Student   |  76,727 |
+| Undergrad |  1,454 |
+| Graduate  |  794 |
+| PI        |  9,629 |
+| Advisor   |  17,154 |
+| Other     |  738 |
 
 一般 `student` 只映射为中性 `Student`。`Undergrad` 与 `Graduate` 必须由公开 title 中的明确学历证据产生；当前 `Undergrad` 缺少 title 证据的记录数为 0。
 
