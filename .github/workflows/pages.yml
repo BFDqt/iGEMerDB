@@ -41,7 +41,12 @@ jobs:
         run: npm ci
 
       - name: Build for the /iGEMerDB/ subpath
-        run: npx vite build --base=/${GITHUB_REPOSITORY#*/}/
+        run: |
+          # public/data/web is generated (gitignored): rebuild shards first.
+          npm run build:data
+          npx vite build --base=/${GITHUB_REPOSITORY#*/}/
+          test -f dist/data/web/core.json
+          test -f dist/data/web/manifest.json
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
