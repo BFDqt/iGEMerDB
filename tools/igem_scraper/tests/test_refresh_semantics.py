@@ -78,15 +78,27 @@ class _FakeClient:
     async def get_team_roster(self, _team_id: int) -> list[dict]:
         return self.roster
 
+    async def get_team_roster_with_meta(self, team_id: int):
+        return self.roster, None
+
     async def get_team_awards(self, _team_id: int) -> list[dict]:
         return self.awards
+
+    async def get_team_awards_with_meta(self, team_id: int):
+        return self.awards, None
 
     async def get_team_detail(self, _team_id: int) -> dict:
         return self.detail
 
+    async def get_team_detail_with_meta(self, team_id: int):
+        return self.detail, None
+
 
 class _FailingRosterClient(_FakeClient):
     async def get_team_roster(self, _team_id: int) -> list[dict]:
+        raise RuntimeError("upstream unavailable")
+
+    async def get_team_roster_with_meta(self, team_id: int):
         raise RuntimeError("upstream unavailable")
 
 

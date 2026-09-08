@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
-from sqlalchemy import String, Integer, Boolean, DateTime, Text, ForeignKey, UniqueConstraint, Index, JSON
+from sqlalchemy import String, Integer, Boolean, DateTime, Text, ForeignKey, UniqueConstraint, Index, JSON, LargeBinary
 from datetime import datetime, timezone
 
 
@@ -171,3 +171,45 @@ class TeamStats(Base):
     student_member_count: Mapped[int] = mapped_column(Integer, default=0)
     student_past_experience_count: Mapped[int] = mapped_column(Integer, default=0)
     computed_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
+
+
+# ─── Replayable scrape archive (phase 1) ────────────────────────────────────────
+
+
+class ScrapeRun(Base):
+    """One ingestion session whose raw responses are archived for replay."""
+
+    __tablename__ = "scrape_run"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    kind: Mapped[str] = mapped_column(String(64))  # e.g. "teams:2026"
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    status: Mapped[str] = mapped_column(String(16), default="open")  # open|complete
+    response_count: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class RawResponse(Base):
+    """An archived upstream response: the source of truth a display row can
+    point back to and replay byte-for-byte."""
+
+    __tablename__ = "raw_response"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    run_id: Mapped[int] = mapped_column(ForeignKey("scrape_run.id"), index=True)
+    endpoint: Mapped[str] = mapped_column(String(128), index=True)  # e.g. team_roster
+    url: Mapped[str] = mapped_column(Text)
+    http_status: Mapped[int] = mapped_column(Integer)
+    content_type: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    fetched_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
+    sha256: Mapped[str] = mapped_column(String(64))
+    # gzip-compressed response body; replay = decompress + json.loads
+    payload: Mapped[bytes] = mapped_column(LargeBinary)
+    team_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    competition_uuid: Mapped[str | None] = mapped_column(
+        String(64), nullable=True, index=True
+    )
+
+    __table_args__ = (
+        Index("ix_raw_response_lookup", "endpoint", "team_id", "id"),
+    )

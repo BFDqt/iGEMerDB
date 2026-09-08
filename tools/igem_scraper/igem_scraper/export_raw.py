@@ -24,7 +24,7 @@ import os
 from pathlib import Path
 from datetime import datetime, timezone
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session as OrmSession
 
 from .models import (
@@ -37,7 +37,8 @@ from .models import (
     TeamAwardResult,
     TeamStats,
 )
-from .db import get_engine
+from .db import get_engine, init_db
+from .models import RawResponse, ScrapeRun
 from .config import ScraperConfig
 from .publication import (
     DEMO_TEST_TEAM_NAMES,
@@ -59,6 +60,9 @@ def _iso(value: datetime | None) -> str | None:
 def export_frontend_raw(cfg: ScraperConfig, out: Path) -> None:
     """Query all tables and write a single JSON file for the frontend."""
     engine = get_engine(cfg)
+    # Idempotent: guarantees the replay-archive tables exist on databases
+    # created before phase 1, so the provenance query below cannot fail.
+    init_db(engine)
 
     with OrmSession(engine) as s:
         competitions = list(s.execute(select(Competition).order_by(Competition.year)).scalars())
@@ -215,6 +219,14 @@ def export_frontend_raw(cfg: ScraperConfig, out: Path) -> None:
             ),
         })
 
+    with OrmSession(engine) as s:
+        archive_run_count = s.scalar(
+            select(ScrapeRun.id).order_by(ScrapeRun.id.desc()).limit(1)
+        )
+        archive_response_count = s.scalar(
+            select(func.count()).select_from(RawResponse)
+        )
+
     generated_at = datetime.now(timezone.utc)
     live_years = [
         competition.year
@@ -242,6 +254,15 @@ def export_frontend_raw(cfg: ScraperConfig, out: Path) -> None:
                     "The official roster role determines student status; "
                     "Undergrad/Graduate require explicit public-title evidence."
                 ),
+                "response_archive": {
+                    "latest_run_id": archive_run_count or 0,
+                    "archived_responses": archive_response_count or 0,
+                    "replay": (
+                        "Every upstream response is archived gzip-compressed "
+                        "with its URL, HTTP status and SHA-256; run "
+                        "`cli.py replay <endpoint> --team-id <id>` to replay it."
+                    ),
+                },
             },
             "freshness": {
                 "live_years": live_years,

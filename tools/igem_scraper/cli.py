@@ -19,6 +19,7 @@ from igem_scraper.team_ingest import (
 )
 from igem_scraper.export_raw import export_frontend_raw
 from igem_scraper.validate import validate_database, validate_export
+from igem_scraper.archive import latest_payload
 
 app = typer.Typer(add_completion=False, help="iGEM api.igem.org scraper")
 console = Console()
@@ -184,6 +185,38 @@ def validate_export_cmd(
             console.print(f"[red]  - {issue}[/red]")
         raise typer.Exit(code=1)
     console.print(f"[green]Export integrity, status, and freshness gates passed: {export}[/green]")
+
+
+@app.command("replay")
+def replay_cmd(
+    endpoint: str = typer.Argument(
+        ...,
+        help="Archived endpoint, e.g. team_detail | team_roster | team_awards",
+    ),
+    team_id: int = typer.Option(None, "--team-id", help="Entity id to replay"),
+    competition_uuid: str = typer.Option(
+        None, "--competition-uuid", help="Competition-scoped endpoint to replay"
+    ),
+):
+    """Replay the newest archived upstream response for one entity."""
+    cfg = load_config()
+    payload = latest_payload(
+        cfg,
+        endpoint,
+        team_id=team_id,
+        competition_uuid=competition_uuid,
+    )
+    if payload is None:
+        console.print("[red]No archived response matches that entity.[/red]")
+        raise typer.Exit(code=1)
+    console.print(
+        f"run={payload['run_id']} endpoint={payload['endpoint']} "
+        f"url={payload['url']} status={payload['http_status']} "
+        f"sha256={payload['sha256']}"
+    )
+    import json
+
+    console.print_json(json.dumps(payload["payload"], ensure_ascii=False))
 
 
 if __name__ == "__main__":

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
 import random
 import time
 from dataclasses import dataclass
+from datetime import datetime, timezone
 
 import httpx
 
@@ -17,6 +19,16 @@ class HttpSettings:
     requests_per_second: float
     timeout_seconds: float
     max_retries: int
+
+
+@dataclass
+class FetchResult:
+    text: str
+    url: str
+    status: int
+    content_type: str | None
+    fetched_at: datetime
+    sha256: str
 
 
 class RateLimiter:
@@ -34,12 +46,12 @@ class RateLimiter:
             self._last = time.monotonic()
 
 
-async def fetch_text(
+async def fetch_text_with_meta(
     client: httpx.AsyncClient,
     limiter: RateLimiter,
     url: str,
     settings: HttpSettings,
-) -> str:
+) -> FetchResult:
     headers = {"User-Agent": settings.user_agent}
     last_err: Exception | None = None
 
@@ -52,7 +64,15 @@ async def fetch_text(
                     f"HTTP {r.status_code}", request=r.request, response=r
                 )
             r.raise_for_status()
-            return r.text
+            body = r.text
+            return FetchResult(
+                text=body,
+                url=str(r.request.url),
+                status=r.status_code,
+                content_type=r.headers.get("content-type"),
+                fetched_at=datetime.now(timezone.utc),
+                sha256=hashlib.sha256(body.encode("utf-8")).hexdigest(),
+            )
         except Exception as e:  # noqa: BLE001
             last_err = e
             backoff = (2**attempt) + random.random()
@@ -60,6 +80,15 @@ async def fetch_text(
             await asyncio.sleep(backoff)
 
     raise RuntimeError(f"Failed to fetch {url}: {last_err}")
+
+
+async def fetch_text(
+    client: httpx.AsyncClient,
+    limiter: RateLimiter,
+    url: str,
+    settings: HttpSettings,
+) -> str:
+    return (await fetch_text_with_meta(client, limiter, url, settings)).text
 
 
 async def fetch_bytes(

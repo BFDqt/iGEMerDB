@@ -59,7 +59,20 @@ python tools/igem_scraper/cli.py validate --export public/data/igem.json
 
 # CI 可独立校验发布 JSON，不需要分发工作数据库
 python tools/igem_scraper/cli.py validate-export public/data/igem.json
+
+# 重放某条记录的原始上游响应（gzip 存档，含 URL/状态/SHA-256）
+python tools/igem_scraper/cli.py replay team_roster --team-id 5587
+python tools/igem_scraper/cli.py replay competition_teams --competition-uuid <uuid>
 ```
+
+## 原始响应存档（可重放管线）
+
+每次 `fetch-teams` 会开启一个 `scrape_run`，四个阶段（赛事队伍清单、
+队伍详情、名单、奖项）的每个成功响应都以 gzip 压缩存入 `raw_response`，
+连同源 URL、HTTP 状态、内容类型、SHA-256 与实体 id。发布快照的
+`meta.provenance.response_archive` 记录最新 run 与累计响应数；
+`cli.py replay` 按实体定位并重放其来源响应——任意一条展示记录都能
+追溯并逐字节重放上游数据。
 
 采集器遵守 `REQUESTS_PER_SECOND`、超时和重试配置。`--concurrency` 只限制并发任务数，不能替代请求速率控制。
 

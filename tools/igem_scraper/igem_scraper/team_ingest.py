@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 from .upsert import get_insert
 
 from .api_client import IgemApiClient
+from .archive import ResponseArchive
 from .config import ScraperConfig
 from .db import get_engine
 from .models import (
@@ -201,11 +202,25 @@ async def fetch_competition_teams(
     cfg: ScraperConfig,
     competition_uuid: str,
     year: int,
+    run_id: int | None = None,
 ) -> list[int]:
     """Fetch all teams for one competition year and upsert Team + CanonicalTeam rows."""
     engine = get_engine(cfg)
     async with IgemApiClient(cfg) as client:
-        teams_data = await client.get_competition_teams(competition_uuid)
+        teams_data, teams_meta = await client.get_competition_teams_with_meta(
+            competition_uuid
+        )
+    if teams_meta is not None:
+        ResponseArchive(cfg).record(
+            run_id=run_id,
+            endpoint="competition_teams",
+            url=teams_meta.url,
+            http_status=teams_meta.status,
+            body=teams_meta.text,
+            content_type=teams_meta.content_type,
+            fetched_at=teams_meta.fetched_at,
+            competition_uuid=competition_uuid,
+        )
     if not teams_data:
         raise RuntimeError(f"API returned no teams for competition year {year}")
 
@@ -298,6 +313,7 @@ async def fetch_team_details(
     team_ids: list[int],
     concurrency: int = 5,
     resume: bool = True,
+    run_id: int | None = None,
 ) -> None:
     """For each team ID, fetch detail JSON and update wiki_url/medal/institutions.
 
@@ -326,13 +342,25 @@ async def fetch_team_details(
     async def _fetch_one(client: IgemApiClient, tid: int) -> None:
         async with sem:
             try:
-                data = await client.get_team_detail(tid)
+                data, meta = await client.get_team_detail_with_meta(tid)
             except Exception as exc:
                 log.warning("Detail fetch failed for team %d: %s", tid, exc)
                 with Session(engine) as s:
                     _mark_team_phase(s, tid, "detail", error=str(exc))
                     s.commit()
                 return
+
+            if run_id is not None and meta is not None:
+                ResponseArchive(cfg).record(
+                    run_id=run_id,
+                    endpoint="team_detail",
+                    url=meta.url,
+                    http_status=meta.status,
+                    body=meta.text,
+                    content_type=meta.content_type,
+                    fetched_at=meta.fetched_at,
+                    team_id=tid,
+                )
 
             year = int(data.get("year") or 0)
             slug = data.get("slug")
@@ -374,6 +402,7 @@ async def fetch_team_rosters(
     year: int,
     concurrency: int = 5,
     resume: bool = True,
+    run_id: int | None = None,
 ) -> None:
     """Fetch roster for each team and upsert Person + RosterEntry rows.
 
@@ -402,13 +431,25 @@ async def fetch_team_rosters(
     async def _fetch_one(client: IgemApiClient, tid: int) -> None:
         async with sem:
             try:
-                entries = await client.get_team_roster(tid)
+                entries, meta = await client.get_team_roster_with_meta(tid)
             except Exception as exc:
                 log.warning("Roster fetch failed for team %d: %s", tid, exc)
                 with Session(engine) as s:
                     _mark_team_phase(s, tid, "roster", error=str(exc))
                     s.commit()
                 return
+
+            if run_id is not None and meta is not None:
+                ResponseArchive(cfg).record(
+                    run_id=run_id,
+                    endpoint="team_roster",
+                    url=meta.url,
+                    http_status=meta.status,
+                    body=meta.text,
+                    content_type=meta.content_type,
+                    fetched_at=meta.fetched_at,
+                    team_id=tid,
+                )
 
             fetched_at = utc_now()
             accepted_entries: dict[tuple[str, str], tuple[dict, dict]] = {}
@@ -531,6 +572,7 @@ async def fetch_team_award_results(
     team_ids: list[int],
     concurrency: int = 5,
     resume: bool = True,
+    run_id: int | None = None,
 ) -> None:
     """Fetch public nominations, winners and medals for every team."""
     engine = get_engine(cfg)
@@ -552,13 +594,25 @@ async def fetch_team_award_results(
     async def _fetch_one(client: IgemApiClient, tid: int) -> None:
         async with sem:
             try:
-                results = await client.get_team_awards(tid)
+                results, meta = await client.get_team_awards_with_meta(tid)
             except Exception as exc:
                 log.warning("Award fetch failed for team %d: %s", tid, exc)
                 with Session(engine) as s:
                     _mark_team_phase(s, tid, "awards", error=str(exc))
                     s.commit()
                 return
+
+            if run_id is not None and meta is not None:
+                ResponseArchive(cfg).record(
+                    run_id=run_id,
+                    endpoint="team_awards",
+                    url=meta.url,
+                    http_status=meta.status,
+                    body=meta.text,
+                    content_type=meta.content_type,
+                    fetched_at=meta.fetched_at,
+                    team_id=tid,
+                )
 
             _insert = get_insert(engine)
             medal = None
@@ -776,7 +830,10 @@ async def ingest_year(
         phase_resume,
     )
 
-    team_ids = await fetch_competition_teams(cfg, comp.uuid, year)
+    archive = ResponseArchive(cfg)
+    run_id = archive.start_run(f"teams:{year}")
+
+    team_ids = await fetch_competition_teams(cfg, comp.uuid, year, run_id=run_id)
     await fetch_competition_awards(cfg, comp.uuid)
 
     if limit:
@@ -784,14 +841,24 @@ async def ingest_year(
         log.info("Limiting to %d teams (--limit flag)", limit)
 
     await fetch_team_details(
-        cfg, team_ids, concurrency=concurrency, resume=phase_resume
+        cfg, team_ids, concurrency=concurrency, resume=phase_resume, run_id=run_id
     )
     await fetch_team_rosters(
-        cfg, team_ids, year, concurrency=concurrency, resume=phase_resume
+        cfg,
+        team_ids,
+        year,
+        concurrency=concurrency,
+        resume=phase_resume,
+        run_id=run_id,
     )
     await fetch_team_award_results(
-        cfg, team_ids, concurrency=concurrency, resume=phase_resume
+        cfg,
+        team_ids,
+        concurrency=concurrency,
+        resume=phase_resume,
+        run_id=run_id,
     )
     compute_stats(cfg, team_ids)
+    archive.finish_run(run_id)
 
-    log.info("Year %d ingestion complete", year)
+    log.info("Year %d ingestion complete (archive run %d)", year, run_id)
