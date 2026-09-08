@@ -22,13 +22,15 @@ export default defineConfig({
       include: ['src/app/**/*.ts', 'src/app/**/*.tsx'],
       exclude: ['src/app/types.ts', 'src/app/test/**', 'src/app/**/*.test.*'],
       thresholds: {
-        // Baselines measured after the 2026-09 test-surface expansion;
-        // intentionally a few points below the measured values so genuine
-        // regressions fail while rounding noise does not.
-        statements: 93,
-        branches: 76,
-        functions: 78,
-        lines: 93,
+        // Baselines re-measured on the vite 8 / vitest 5 toolchain, whose
+        // v8 provider accounts instrumented branches differently than
+        // vitest 3 (same code and tests, lower reported percentages).
+        // Kept a few points below measured values so genuine regressions
+        // fail while rounding noise does not.
+        statements: 87,
+        branches: 73,
+        functions: 86,
+        lines: 89,
       },
     },
   },
