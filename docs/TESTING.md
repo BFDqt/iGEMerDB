@@ -99,7 +99,7 @@ premium UI、弱网 release acceptance）与严格 axe 无障碍扫描
 
 - 文件：`igemerdb-2.0.0-beta.1.zip`（`dist/` 生产产物，337 个文件），随 GitHub
   Release `v2.0.0-beta.1` 发布，同时在 GitHub Pages 提供公开访问
-- 大小：21,393,915 bytes
-- SHA-256：`2145F77D875EF0683442704207F23E1C028F70D121964609A0BA68EECAA335A4`
-- 打包时间：2026-09-06，包含无障碍对比度修复后的最终样式，对应本文件上方记录的
-  全部本地门禁、浏览器验收与远端 Quality Gate 结果。
+- 大小：21,425,409 bytes
+- SHA-256：`42EF002E393ECC0F75C749FE2002E1ACBEF42177EAC109745321BB5AADECF35C`
+- 打包时间：2026-09-09，对应 2026-09-08 刷新的 live 快照（5,280 支默认可见队伍、
+  81,823 位公开成员）与全部本地门禁、浏览器验收、严格 axe 扫描及远端 Quality Gate 结果。
