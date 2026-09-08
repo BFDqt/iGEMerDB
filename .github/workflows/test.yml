@@ -37,8 +37,10 @@ jobs:
       - name: Frontend coverage gate
         run: npm run test:coverage
 
+      # Dependabot PRs run with a read-only token and cannot upload
+      # artifacts; keep the report upload to branch pushes only.
       - name: Upload coverage report
-        if: always()
+        if: always() && github.event_name != 'pull_request'
         uses: actions/upload-artifact@v7
         with:
           name: coverage-report-${{ github.sha }}
@@ -129,7 +131,7 @@ jobs:
           BASE_URL=http://127.0.0.1:4174 npm run test:axe
 
       - name: Upload browser diagnostics on failure
-        if: failure()
+        if: failure() && github.event_name != 'pull_request'
         uses: actions/upload-artifact@v7
         with:
           name: browser-diagnostics
