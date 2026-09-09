@@ -1,7 +1,6 @@
 import { Route, Routes } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import {
-  DatabaseRevisionBoundary,
   PeopleDataBoundary,
   PersonDataBoundary,
   TeamDataBoundary,
@@ -20,7 +19,6 @@ import { TeamsPage } from './pages/TeamsPage';
 
 export function App() {
   return (
-    <DatabaseRevisionBoundary>
       <Layout>
         <Routes>
           <Route path="/" element={<HomePage />} />
@@ -60,6 +58,5 @@ export function App() {
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </Layout>
-    </DatabaseRevisionBoundary>
   );
 }

@@ -4,16 +4,13 @@ import {
   useCallback,
   useEffect,
   useState,
-  useSyncExternalStore,
 } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   ensureAllPeople,
   ensurePerson,
   ensureTeamPeople,
-  getDatabaseRevision,
   isRuntimeCoreLoaded,
-  subscribeDatabase,
 } from '../dataBundles';
 
 interface BoundaryProps {
@@ -88,22 +85,6 @@ function DataBoundary({ children, load, label, resetKey }: BoundaryProps) {
       )}
     </section>
   );
-}
-
-export function DatabaseRevisionBoundary({
-  children,
-}: {
-  children: ReactNode;
-}) {
-  // Re-keying on revision forces the subtree to re-render on every publish;
-  // a bare `return children` would bail out on the stable element reference
-  // and the notification would never reach the pages.
-  const revision = useSyncExternalStore(
-    subscribeDatabase,
-    getDatabaseRevision,
-    getDatabaseRevision,
-  );
-  return <div key={revision} style={{ display: 'contents' }}>{children}</div>;
 }
 
 export function PeopleDataBoundary({ children }: { children: ReactNode }) {
