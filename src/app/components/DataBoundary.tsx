@@ -20,14 +20,35 @@ interface BoundaryProps {
   children: ReactNode;
   load: () => Promise<unknown>;
   label: string;
+  // Primitive identity of the entity this boundary loads. Resetting on a
+  // string change avoids the flip-flop that callback-identity comparison
+  // hits while a navigation's params land across renders.
+  resetKey: string;
 }
 
-function DataBoundary({ children, load, label }: BoundaryProps) {
+function DataBoundary({ children, load, label, resetKey }: BoundaryProps) {
   const runtime = isRuntimeCoreLoaded();
   const [attempt, setAttempt] = useState(0);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>(
     runtime ? 'loading' : 'ready',
   );
+  const [errorDetail, setErrorDetail] = useState('');
+
+  // Navigating between two entities of the same route keeps this component
+  // mounted; reset synchronously during render so the previous entity's
+  // "not found" frame never flashes while the next shard loads.
+  const [previousResetKey, setPreviousResetKey] = useState(resetKey);
+  if (previousResetKey !== resetKey) {
+    setPreviousResetKey(resetKey);
+    setStatus('loading');
+  }
+
+  // Navigating between two entities of the same route keeps this component
+  // mounted; reset synchronously during render so the previous entity's
+  // "not found" frame never flashes while the next shard loads. (Spell out
+  // the state type: useState(load) would treat the callback as a lazy
+  // initializer and store its Promise instead.)
+
 
   useEffect(() => {
     if (!runtime) return;
@@ -37,8 +58,11 @@ function DataBoundary({ children, load, label }: BoundaryProps) {
       .then(() => {
         if (active) setStatus('ready');
       })
-      .catch(() => {
-        if (active) setStatus('error');
+      .catch((error: unknown) => {
+        if (!active) return;
+        console.error('route data shard failed:', error);
+        setErrorDetail(error instanceof Error ? error.message : String(error));
+        setStatus('error');
       });
     return () => {
       active = false;
@@ -54,7 +78,7 @@ function DataBoundary({ children, load, label }: BoundaryProps) {
       <h1>{status === 'error' ? '数据分片载入失败' : `正在载入${label}`}</h1>
       <p>
         {status === 'error'
-          ? '核心目录仍然可用，你可以重试这一条记录的数据分片。'
+          ? `${errorDetail || '未知错误'}——核心目录仍然可用，可重试这一条记录的数据分片。`
           : '只下载当前页面需要的数据，不再让每个入口等待完整资料库。'}
       </p>
       {status === 'error' && (
@@ -71,18 +95,21 @@ export function DatabaseRevisionBoundary({
 }: {
   children: ReactNode;
 }) {
-  useSyncExternalStore(
+  // Re-keying on revision forces the subtree to re-render on every publish;
+  // a bare `return children` would bail out on the stable element reference
+  // and the notification would never reach the pages.
+  const revision = useSyncExternalStore(
     subscribeDatabase,
     getDatabaseRevision,
     getDatabaseRevision,
   );
-  return children;
+  return <div key={revision} style={{ display: 'contents' }}>{children}</div>;
 }
 
 export function PeopleDataBoundary({ children }: { children: ReactNode }) {
   const load = useCallback(() => ensureAllPeople(), []);
   return (
-    <DataBoundary load={load} label="成员索引">
+    <DataBoundary load={load} label="成员索引" resetKey="people">
       {children}
     </DataBoundary>
   );
@@ -96,7 +123,7 @@ export function TeamDataBoundary({ children }: { children: ReactNode }) {
     [id],
   );
   return (
-    <DataBoundary load={load} label="队伍名单">
+    <DataBoundary load={load} label="队伍名单" resetKey={String(id)}>
       {children}
     </DataBoundary>
   );
@@ -109,7 +136,7 @@ export function PersonDataBoundary({ children }: { children: ReactNode }) {
     [personId],
   );
   return (
-    <DataBoundary load={load} label="成员档案">
+    <DataBoundary load={load} label="成员档案" resetKey={personId}>
       {children}
     </DataBoundary>
   );

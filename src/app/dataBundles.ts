@@ -155,11 +155,17 @@ export function ensureAllPeople(): Promise<Database> {
   if (existing) return existing;
   const request = fetchJson<CompactPeopleBundle>('people.json')
     .then((bundle) => {
+      // Expand (and therefore validate) before mutating shared state: a
+      // malformed bundle must leave the previous partial index intact and
+      // must not flip the short-circuit flag for future ensure* calls.
+      const expanded = expandBundle(bundle);
       members.clear();
       roster.clear();
-      completePeopleLoaded = true;
       loadedFeatures.clear();
-      return mergeBundle(bundle);
+      for (const member of expanded.members) members.set(member.uuid, member);
+      for (const entry of expanded.roster) roster.set(rosterKey(entry), entry);
+      completePeopleLoaded = true;
+      return publishDatabase();
     })
     .finally(() => pending.delete(key));
   pending.set(key, request);

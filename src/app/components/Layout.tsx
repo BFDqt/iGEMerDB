@@ -9,7 +9,12 @@ import {
   UsersRound,
   X,
 } from 'lucide-react';
-import { useEffect, useState, type ReactNode } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { database } from '../data';
 import { SearchDialog } from './SearchDialog';
@@ -25,6 +30,8 @@ const navigation = [
 export function Layout({ children }: { children: ReactNode }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuTriggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLElement>(null);
   const location = useLocation();
   const shortcutLabel = /Mac|iPhone|iPad/i.test(navigator.platform)
     ? '⌘ K'
@@ -34,6 +41,22 @@ export function Layout({ children }: { children: ReactNode }) {
     setMenuOpen(false);
     window.scrollTo({ top: 0, behavior: 'instant' });
   }, [location.pathname]);
+
+  // Keyboard support for the mobile navigation: Escape closes it, focus
+  // moves into the panel when it opens and returns to the trigger on close.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setMenuOpen(false);
+        menuTriggerRef.current?.focus();
+      }
+    };
+    document.addEventListener('keydown', handleEscape);
+    const firstLink = menuRef.current?.querySelector('a');
+    firstLink?.focus();
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [menuOpen]);
 
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {
@@ -87,6 +110,7 @@ export function Layout({ children }: { children: ReactNode }) {
               <kbd>{shortcutLabel}</kbd>
             </button>
             <button
+              ref={menuTriggerRef}
               className="menu-trigger"
               type="button"
               aria-label={menuOpen ? '关闭导航' : '打开导航'}
@@ -106,6 +130,7 @@ export function Layout({ children }: { children: ReactNode }) {
         {menuOpen && (
           <nav
             id="mobile-navigation"
+            ref={menuRef}
             className="mobile-nav"
             aria-label="移动端导航"
           >

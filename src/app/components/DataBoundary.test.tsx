@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   PeopleDataBoundary,
@@ -126,6 +126,50 @@ describe('DataBoundary', () => {
     expect(await screen.findByText('正在载入队伍名单')).toBeInTheDocument();
     const status = document.querySelector('.route-data-status');
     expect(status).toHaveAttribute('aria-live', 'polite');
+  });
+
+  it('resets to loading synchronously when the route entity changes', async () => {
+    stubFetch((url) => (url.endsWith('core.json') ? source : undefined));
+    await loadCoreDatabase();
+    stubFetch((url) => {
+      if (url.endsWith('core.json')) return source;
+      if (url.endsWith('person/8a.json')) {
+        return buildCompactBundle([memberRow('mem-found', 'Found Person')], [
+          [5587, 0, 2025, 'Student', 'student', 1],
+        ]);
+      }
+      return undefined; // the next entity's shard is missing
+    });
+
+    function BoundaryWithNav({ to }: { to?: string }) {
+      return (
+        <MemoryRouter
+          initialEntries={[to ?? '/people/5058c88a-5e99-47f7-adc3-5604574e13d4']}
+          future={{ v7_relativeSplatPath: true }}
+        >
+          {to && <Navigate to={to} replace />}
+          <Routes>
+            <Route
+              path="/people/:personId"
+              element={
+                <PersonDataBoundary>
+                  <div>FOUND-CONTENT</div>
+                </PersonDataBoundary>
+              }
+            />
+          </Routes>
+        </MemoryRouter>
+      );
+    }
+
+    const view = render(<BoundaryWithNav />);
+    await screen.findByText('FOUND-CONTENT');
+
+    // Navigating to a missing entity must not keep showing the previous
+    // entity's content while the (failing) shard request is in flight.
+    view.rerender(<BoundaryWithNav to="/people/missing-person" />);
+    expect(screen.queryByText('FOUND-CONTENT')).not.toBeInTheDocument();
+    expect(screen.getByText('正在载入成员档案')).toBeInTheDocument();
   });
 
   it('renders children once the complete people index has loaded', async () => {

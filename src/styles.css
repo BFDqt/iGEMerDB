@@ -60,6 +60,62 @@
   color: var(--accent);
 }
 
+/* Per-route on-demand shard loading / failure panel. */
+.route-data-status {
+  min-height: 60vh;
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  gap: 0.8rem;
+  padding: clamp(2rem, 8vw, 8rem);
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.route-data-status svg {
+  width: 28px;
+  height: 28px;
+  color: var(--muted);
+}
+
+.route-data-status .kicker {
+  font:
+    700 0.72rem/1.2 ui-monospace,
+    SFMono-Regular,
+    Consolas,
+    monospace;
+  letter-spacing: 0.15em;
+  color: var(--accent);
+}
+
+.route-data-status h1 {
+  margin: 0;
+  font-size: clamp(1.4rem, 3vw, 2rem);
+}
+
+.route-data-status p {
+  margin: 0;
+  max-width: 60ch;
+  color: var(--muted);
+}
+
+.route-data-status button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 1rem;
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+}
+
+.route-data-status button:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
 .boot-status h1,
 .boot-status p {
   margin: 0;

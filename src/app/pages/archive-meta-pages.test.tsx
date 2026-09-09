@@ -25,6 +25,19 @@ describe('InstitutionsPage', () => {
     ).toBeInTheDocument();
   });
 
+  it('offers only sort options the data model can honour', () => {
+    render(
+      <MemoryRouter initialEntries={['/institutions']} future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
+        <InstitutionsPage />
+      </MemoryRouter>,
+    );
+    const options = screen.getAllByRole('option').map((option) => option.textContent);
+    // Official institutions index teams, not people — a people-count sort
+    // would be a silent no-op and must not be offered.
+    expect(options).not.toContain('公开成员数');
+    expect(options).toContain('关联队伍数');
+  });
+
   it('filters through the shareable query state', async () => {
     const user = userEvent.setup();
     render(

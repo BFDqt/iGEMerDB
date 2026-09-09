@@ -41,10 +41,6 @@ export function InstitutionsPage() {
     return [...result].sort((a, b) => {
       if (sort === 'teams')
         return b.teams.length - a.teams.length || a.name.localeCompare(b.name);
-      if (sort === 'people')
-        return (
-          b.people.length - a.people.length || a.name.localeCompare(b.name)
-        );
       return a.name.localeCompare(b.name);
     });
   }, [country, query, sort, year]);
@@ -56,13 +52,18 @@ export function InstitutionsPage() {
   const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const update = (key: string, value: string) => {
-    setParams((current) => {
-      const next = new URLSearchParams(current);
-      if (value) next.set(key, value);
-      else next.delete(key);
-      if (key !== 'page') next.set('page', '1');
-      return next;
-    });
+    // Filter/search keystrokes replace instead of pushing: ten typed
+    // characters should not create ten back-button history entries.
+    setParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        if (value) next.set(key, value);
+        else next.delete(key);
+        if (key !== 'page') next.set('page', '1');
+        return next;
+      },
+      { replace: true },
+    );
   };
 
   return (
@@ -140,7 +141,6 @@ export function InstitutionsPage() {
           >
             <option value="name">名称 A–Z</option>
             <option value="teams">关联队伍数</option>
-            <option value="people">公开成员数</option>
           </select>
         </label>
         {(query || year || country) && (

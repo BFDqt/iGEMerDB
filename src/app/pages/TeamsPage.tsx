@@ -95,13 +95,18 @@ export function TeamsPage() {
   const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const update = (key: string, value: string) => {
-    setParams((current) => {
-      const next = new URLSearchParams(current);
-      if (value) next.set(key, value);
-      else next.delete(key);
-      if (key !== 'page') next.set('page', '1');
-      return next;
-    });
+    // Filter/search keystrokes replace instead of pushing: ten typed
+    // characters should not create ten back-button history entries.
+    setParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        if (value) next.set(key, value);
+        else next.delete(key);
+        if (key !== 'page') next.set('page', '1');
+        return next;
+      },
+      { replace: true },
+    );
   };
 
   const clear = () => setParams({});
