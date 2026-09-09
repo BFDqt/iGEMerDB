@@ -127,4 +127,4 @@ npm run check
 
 项目延续 [AGPL-3.0](LICENSE) 许可。公开部署修改版本时需遵守同等开源义务。
 
-iGEMerDB 是独立社区索引，不隶属于或代表 iGEM Foundation。iGEM 名称及相关标识归其权利人所有。
+iGEMerDB 是独立社区索引，不隶属于或代表 iGEM Foundation。iGEM 名称及相关标识归其权利人所有。公开名单成员如需纠错或撤回展示，可通过站内“报告问题”提交；原始响应归档的保留与清除策略见 [数据快照报告](docs/DATASET.md)。

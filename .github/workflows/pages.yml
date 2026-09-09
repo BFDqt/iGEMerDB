@@ -29,7 +29,11 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      # Build the exact commit that passed the Quality Gate, never whatever
+      # landed on master while the gate was running.
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Use Node.js 22
         uses: actions/setup-node@v7

@@ -26,6 +26,10 @@ jobs:
     environment: production
     env:
       RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+      # Job-level so the health-check `if:` can read them; secrets cannot be
+      # referenced from step-level `if:` expressions (always empty there).
+      PUBLIC_URL: ${{ secrets.PUBLIC_URL }}
+      PUBLIC_URL_2: ${{ secrets.PUBLIC_URL_2 }}
 
     steps:
       - name: Download the exact artifact that passed Quality Gate
@@ -114,7 +118,7 @@ jobs:
           SCRIPT_AFTER_REQUIRED: true
 
       - name: HTTP health checks
-        if: ${{ secrets.PUBLIC_URL != '' && secrets.PUBLIC_URL_2 != '' }}
+        if: ${{ env.PUBLIC_URL != '' && env.PUBLIC_URL_2 != '' }}
         env:
           PUBLIC_URL: ${{ secrets.PUBLIC_URL }}
           PUBLIC_URL_2: ${{ secrets.PUBLIC_URL_2 }}

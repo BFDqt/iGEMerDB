@@ -9,8 +9,8 @@ Target shape consumed by frontend processData(raw):
   "teams": [{id, name, year, section, country, city, region, wiki_url, medal,
              canonical_id, institutions, all_member_count, student_member_count,
              student_past_experience_count}],
-  "members": [{uuid, name, name_norm, username, institution, country,
-                igem_since, first_seen_year, last_seen_year}],
+  "members": [{uuid, name, username, institution, title, affiliation, country,
+                igem_since}],
   "roster": [{team_id, member_uuid, year, role_inferred, is_student}],
   "awards": [{uuid, competition_uuid, title, description}],
   "team_awards": [{team_id, award_uuid, title, decision, award_type, ...}]

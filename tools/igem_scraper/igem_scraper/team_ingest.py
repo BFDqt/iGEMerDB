@@ -158,11 +158,25 @@ def recompute_roster_roles(cfg: ScraperConfig) -> int:
 
 # ─── 1. Competitions ─────────────────────────────────────────────────────────
 
-async def fetch_competitions(cfg: ScraperConfig) -> list[dict]:
+async def fetch_competitions(
+    cfg: ScraperConfig, run_id: int | None = None
+) -> list[dict]:
     """Fetch all competition years from API and upsert into DB."""
     engine = get_engine(cfg)
     async with IgemApiClient(cfg) as client:
-        competitions = await client.get_competitions()
+        competitions, competitions_metas = await client.get_competitions_with_meta()
+    if run_id is not None:
+        archive = ResponseArchive(cfg)
+        for meta in competitions_metas:
+            archive.record(
+                run_id=run_id,
+                endpoint="competitions",
+                url=meta.url,
+                http_status=meta.status,
+                body=meta.text,
+                content_type=meta.content_type,
+                fetched_at=meta.fetched_at,
+            )
 
     rows = []
     fetched_at = utc_now()
@@ -207,20 +221,22 @@ async def fetch_competition_teams(
     """Fetch all teams for one competition year and upsert Team + CanonicalTeam rows."""
     engine = get_engine(cfg)
     async with IgemApiClient(cfg) as client:
-        teams_data, teams_meta = await client.get_competition_teams_with_meta(
+        teams_data, teams_metas = await client.get_competition_teams_with_meta(
             competition_uuid
         )
-    if teams_meta is not None:
-        ResponseArchive(cfg).record(
-            run_id=run_id,
-            endpoint="competition_teams",
-            url=teams_meta.url,
-            http_status=teams_meta.status,
-            body=teams_meta.text,
-            content_type=teams_meta.content_type,
-            fetched_at=teams_meta.fetched_at,
-            competition_uuid=competition_uuid,
-        )
+    if run_id is not None:
+        archive = ResponseArchive(cfg)
+        for meta in teams_metas:
+            archive.record(
+                run_id=run_id,
+                endpoint="competition_teams",
+                url=meta.url,
+                http_status=meta.status,
+                body=meta.text,
+                content_type=meta.content_type,
+                fetched_at=meta.fetched_at,
+                competition_uuid=competition_uuid,
+            )
     if not teams_data:
         raise RuntimeError(f"API returned no teams for competition year {year}")
 
@@ -665,11 +681,25 @@ async def fetch_team_award_results(
 async def fetch_competition_awards(
     cfg: ScraperConfig,
     competition_uuid: str,
+    run_id: int | None = None,
 ) -> None:
     """Fetch and transactionally replace one competition's award catalogue."""
     engine = get_engine(cfg)
     async with IgemApiClient(cfg) as client:
-        awards_data = await client.get_competition_awards(competition_uuid)
+        awards_data, awards_meta = await client.get_competition_awards_with_meta(
+        competition_uuid
+    )
+    if run_id is not None and awards_meta is not None:
+        ResponseArchive(cfg).record(
+            run_id=run_id,
+            endpoint="competition_awards",
+            url=awards_meta.url,
+            http_status=awards_meta.status,
+            body=awards_meta.text,
+            content_type=awards_meta.content_type,
+            fetched_at=awards_meta.fetched_at,
+            competition_uuid=competition_uuid,
+        )
 
     _insert = get_insert(engine)
     fetched_at = utc_now()
@@ -832,33 +862,39 @@ async def ingest_year(
 
     archive = ResponseArchive(cfg)
     run_id = archive.start_run(f"teams:{year}")
+    try:
+        team_ids = await fetch_competition_teams(
+            cfg, comp.uuid, year, run_id=run_id
+        )
+        await fetch_competition_awards(cfg, comp.uuid, run_id=run_id)
 
-    team_ids = await fetch_competition_teams(cfg, comp.uuid, year, run_id=run_id)
-    await fetch_competition_awards(cfg, comp.uuid)
+        if limit:
+            team_ids = team_ids[:limit]
+            log.info("Limiting to %d teams (--limit flag)", limit)
 
-    if limit:
-        team_ids = team_ids[:limit]
-        log.info("Limiting to %d teams (--limit flag)", limit)
-
-    await fetch_team_details(
-        cfg, team_ids, concurrency=concurrency, resume=phase_resume, run_id=run_id
-    )
-    await fetch_team_rosters(
-        cfg,
-        team_ids,
-        year,
-        concurrency=concurrency,
-        resume=phase_resume,
-        run_id=run_id,
-    )
-    await fetch_team_award_results(
-        cfg,
-        team_ids,
-        concurrency=concurrency,
-        resume=phase_resume,
-        run_id=run_id,
-    )
-    compute_stats(cfg, team_ids)
+        await fetch_team_details(
+            cfg, team_ids, concurrency=concurrency, resume=phase_resume, run_id=run_id
+        )
+        await fetch_team_rosters(
+            cfg,
+            team_ids,
+            year,
+            concurrency=concurrency,
+            resume=phase_resume,
+            run_id=run_id,
+        )
+        await fetch_team_award_results(
+            cfg,
+            team_ids,
+            concurrency=concurrency,
+            resume=phase_resume,
+            run_id=run_id,
+        )
+        compute_stats(cfg, team_ids)
+    except Exception:
+        archive.finish_run(run_id, status="failed")
+        log.exception("Year %d ingestion failed; archive run %d marked failed", year, run_id)
+        raise
     archive.finish_run(run_id)
 
     log.info("Year %d ingestion complete (archive run %d)", year, run_id)

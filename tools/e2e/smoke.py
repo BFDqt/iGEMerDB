@@ -46,6 +46,34 @@ def load_expected() -> dict[str, int]:
     }
 
 
+
+def pick_showcase_team(snapshot: dict) -> dict:
+    """Deterministically pick the demo detail team from the live snapshot.
+
+    Prefers a visible gold-medal winner whose results mention Best Wiki so the
+    long-standing assertions (name, GOLD, Best Wiki) stay data-backed; falls
+    back to any visible gold winner. Never hardcodes a team id: upstream can
+    retire any given team at any time.
+    """
+    visible = {t["id"]: t for t in snapshot["teams"] if t.get("default_visible", True)}
+    best_wiki: list[dict] = []
+    gold: list[dict] = []
+    for result in snapshot.get("team_awards", []):
+        team = visible.get(result["team_id"])
+        if team is None or result.get("decision") != "winner":
+            continue
+        title = (result.get("title") or "").lower()
+        if result.get("award_type") == "medal" and result.get("award_subtype") == "gold":
+            if team["id"] not in [t["id"] for t in gold]:
+                gold.append(team)
+            if "best wiki" in title and team["id"] not in [t["id"] for t in best_wiki]:
+                best_wiki.append(team)
+    candidates = sorted(best_wiki or gold, key=lambda t: t["id"])
+    if not candidates:
+        raise RuntimeError("no visible gold-medal team found for e2e fixtures")
+    return candidates[0]
+
+
 EXPECTED = load_expected()
 
 
@@ -101,6 +129,9 @@ def load_detail_fixtures() -> dict[str, object]:
 
 
 DETAILS = load_detail_fixtures()
+SHOWCASE = pick_showcase_team(json.loads(
+    (PROJECT_ROOT / "public" / "data" / "igem.json").read_text(encoding="utf-8")
+))
 
 
 def attach_diagnostics(page: Page, issues: list[str]) -> None:
@@ -189,7 +220,7 @@ def run_desktop(browser, issues: list[str]) -> dict[str, int]:
     expect(page.get_by_role("heading", name="Aachen", exact=True)).to_be_visible()
     assert "/teams/" in page.url
 
-    page.goto(f"{BASE_URL}/teams/5587")
+    page.goto(f"{BASE_URL}/teams/{SHOWCASE['id']}")
     wait_for_app(page)
     expect(page.get_by_role("heading", name="Aachen", exact=True)).to_be_visible()
     detail_text = page.locator("#main-content").inner_text()

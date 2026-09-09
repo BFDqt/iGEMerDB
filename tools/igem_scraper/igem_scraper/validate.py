@@ -168,8 +168,14 @@ def validate_database(cfg: ScraperConfig) -> ValidationReport:
     )
 
 
-def validate_export(path: Path) -> tuple[str, ...]:
-    """Validate referential integrity and coverage metadata in an exported JSON."""
+def validate_export(path: Path, ignore_stale_live: bool = False) -> tuple[str, ...]:
+    """Validate referential integrity and coverage metadata in an exported JSON.
+
+    ``ignore_stale_live`` downgrades live-year freshness findings to nothing.
+    It exists for pull-request pipelines: contributors validate an aging
+    snapshot's structure, while pushes to the default branch always run the
+    full freshness gate before anything can ship.
+    """
     if not path.is_file():
         return (f"export does not exist: {path}",)
 
@@ -390,4 +396,10 @@ def validate_export(path: Path) -> tuple[str, ...]:
     if stale_roles:
         issues.append(f"{stale_roles} roster rows use stale role mappings")
 
+    if ignore_stale_live:
+        issues = [
+            issue
+            for issue in issues
+            if "has stale " not in issue and "competition listing is stale" not in issue
+        ]
     return tuple(issues)

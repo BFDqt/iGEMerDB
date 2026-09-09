@@ -14,7 +14,7 @@ import gzip
 import hashlib
 from datetime import datetime, timezone
 
-from sqlalchemy import desc, select
+from sqlalchemy import desc, select, update
 from sqlalchemy.orm import Session as OrmSession
 
 from .db import get_engine
@@ -35,12 +35,16 @@ class ResponseArchive:
             session.commit()
             return int(run.id)
 
-    def finish_run(self, run_id: int) -> None:
+    def finish_run(self, run_id: int, status: str = "complete") -> None:
+        """Close a run. Failed ingestions must be marked ``failed`` so an
+        incomplete run can never be mistaken for a complete archive."""
+        if status not in ("complete", "failed"):
+            raise ValueError(f"unknown run status: {status}")
         engine = get_engine(self._cfg)
         with OrmSession(engine) as session:
             run = session.get(ScrapeRun, run_id)
             if run is not None:
-                run.status = "complete"
+                run.status = status
                 run.finished_at = datetime.now(timezone.utc)
                 session.commit()
 
@@ -75,10 +79,35 @@ class ResponseArchive:
                     competition_uuid=competition_uuid,
                 )
             )
-            run = session.get(ScrapeRun, run_id)
-            if run is not None:
-                run.response_count = (run.response_count or 0) + 1
+            # Atomic server-side increment: safe if two harvesters share a DB.
+            session.execute(
+                update(ScrapeRun)
+                .where(ScrapeRun.id == run_id)
+                .values(response_count=ScrapeRun.response_count + 1)
+            )
             session.commit()
+
+
+def list_runs(cfg, limit: int = 20) -> list[dict]:
+    """Newest runs first, for the ``cli.py runs`` inspection command."""
+    engine = get_engine(cfg)
+    with OrmSession(engine) as session:
+        rows = session.scalars(
+            select(ScrapeRun).order_by(desc(ScrapeRun.id)).limit(limit)
+        ).all()
+        return [
+            {
+                "id": row.id,
+                "kind": row.kind,
+                "status": row.status,
+                "response_count": row.response_count,
+                "started_at": row.started_at.isoformat() if row.started_at else None,
+                "finished_at": (
+                    row.finished_at.isoformat() if row.finished_at else None
+                ),
+            }
+            for row in rows
+        ]
 
 
 def latest_payload(

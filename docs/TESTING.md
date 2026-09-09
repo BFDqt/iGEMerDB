@@ -22,7 +22,7 @@ premium UI、弱网 release acceptance）与严格 axe 无障碍扫描
 | ------------------------------- | ----------------------------: |
 | 前端测试                        |  12 个文件，75 / 75 通过      |
 | 前端覆盖率                      | 95.9% lines / 78.2% branches |
-| 采集器测试                      |                44 / 44 通过   |
+| 采集器测试                      |                50 / 50 通过   |
 | TypeScript / ESLint             |                   通过 / 通过 |
 | 生产 JSON 引用、状态、freshness |                          通过 |
 | Web 分片引用与数量守恒          |                          通过 |
@@ -82,7 +82,7 @@ premium UI、弱网 release acceptance）与严格 axe 无障碍扫描
 ## 发布前清单
 
 - [x] 锁文件、Node / npm engine 与生产构建可复现；
-- [x] 前端 23 项与采集器 22 项测试全部通过；
+- [x] 前端 75 项与采集器 50 项测试全部通过（计数以 CI 输出为准）；
 - [x] 完整快照与 Web 分片校验通过；
 - [x] 默认目录 5,280 条，显式 all 5,518 条，withdrawn 191 条浏览器复验通过（2026-09-06）；
 - [x] Chromium 主路径、移动导航、焦点和视觉底线通过；
@@ -93,6 +93,7 @@ premium UI、弱网 release acceptance）与严格 axe 无障碍扫描
 - [x] 部署配置为双区域 staging、原子 current 切换、健康检查与失败回滚；
 - [x] 远端 Quality Gate 已于 2026-09-06 在公开镜像仓库 `BFDqt/iGEMerDB` 实际运行并通过（干净 checkout：前端 check、采集器测试、发布快照校验、Chromium e2e 全绿，产物 `production-dist-<sha>` 已上传）。上游 `OIerDb-ng/OIerDb` 为无写权限的第三方活跃项目，交付以镜像仓库为准；
 - [ ] Tokyo / Hong Kong 的真实部署与回滚演练需要服务器密钥和生产权限；镜像仓库未配置 `production` 环境，deploy 工作流已被禁用（`gh workflow enable deploy.yml` + 配置密钥后可启用）；
+- [x] 阶段 1 可重放管线：每个上游响应 gzip 存档（run 1：1,294 条），`cli.py replay` 可重放任意展示记录的来源响应；PR 流水线以 `--ignore-stale-live` 降级新鲜度检查，默认分支推送仍强制 48 小时门禁；
 - [ ] 2004–2007 历史奖项需要多来源补录，当前产品保持 Preview 标识。
 
 ## 2.0.0-beta.1 交付物

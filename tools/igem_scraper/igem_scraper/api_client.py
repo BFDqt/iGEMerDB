@@ -173,6 +173,46 @@ async def get_competition_awards(
 # ─── Metadata-aware variants (raw-response archiving) ───────────────────────
 
 
+async def get_competitions_with_meta(
+    client: httpx.AsyncClient,
+    limiter: RateLimiter,
+    settings: HttpSettings,
+) -> tuple[list[dict], list[FetchResult]]:
+    results: list[dict] = []
+    metas: list[FetchResult] = []
+    page = 1
+    while True:
+        data, meta = await _get_json_with_meta(
+            client, limiter, settings, "competitions", {"page": page, "pageSize": _PAGE_SIZE}
+        )
+        metas.append(meta)
+        batch = data.get("data", data) if isinstance(data, dict) else data
+        if not batch:
+            break
+        results.extend(batch)
+        total = data.get("total") if isinstance(data, dict) else None
+        if total is not None and len(results) >= total:
+            break
+        if len(batch) < _PAGE_SIZE:
+            break
+        page += 1
+    return results, metas
+
+
+async def get_competition_awards_with_meta(
+    client: httpx.AsyncClient,
+    limiter: RateLimiter,
+    settings: HttpSettings,
+    competition_uuid: str,
+) -> tuple[list[dict], FetchResult]:
+    result, meta = await _get_json_with_meta(
+        client, limiter, settings, f"competitions/{competition_uuid}/awards"
+    )
+    if isinstance(result, dict):
+        result = result.get("data", [])
+    return (result if isinstance(result, list) else []), meta
+
+
 async def get_team_roster_with_meta(
     client: httpx.AsyncClient,
     limiter: RateLimiter,
@@ -215,7 +255,9 @@ async def get_competition_teams_with_meta(
     limiter: RateLimiter,
     settings: HttpSettings,
     competition_uuid: str,
-) -> tuple[list[dict], FetchResult]:
+) -> tuple[list[dict], list[FetchResult]]:
+    """Fetch every page; callers must archive ALL returned metas so the
+    replay archive covers the complete upstream listing, not just one page."""
     results: list[dict] = []
     metas: list[FetchResult] = []
     page = 1
@@ -238,7 +280,7 @@ async def get_competition_teams_with_meta(
         if len(batch) < _PAGE_SIZE:
             break
         page += 1
-    return results, metas[-1] if metas else None
+    return results, metas
 
 
 # ─── Convenience class wrapper ───────────────────────────────────────────────
@@ -297,6 +339,15 @@ class IgemApiClient:
 
     async def get_competition_awards(self, competition_uuid: str) -> list[dict]:
         return await get_competition_awards(*self._c(), competition_uuid)
+
+    async def get_competitions_with_meta(self):
+        return await get_competitions_with_meta(*self._c())
+
+    async def get_competition_teams_with_meta(self, competition_uuid: str):
+        return await get_competition_teams_with_meta(*self._c(), competition_uuid)
+
+    async def get_competition_awards_with_meta(self, competition_uuid: str):
+        return await get_competition_awards_with_meta(*self._c(), competition_uuid)
 
     async def get_team_detail_with_meta(self, team_id: int):
         return await get_team_detail_with_meta(*self._c(), team_id)

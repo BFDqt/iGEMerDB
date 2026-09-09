@@ -19,7 +19,7 @@ from igem_scraper.team_ingest import (
 )
 from igem_scraper.export_raw import export_frontend_raw
 from igem_scraper.validate import validate_database, validate_export
-from igem_scraper.archive import latest_payload
+from igem_scraper.archive import ResponseArchive, latest_payload, list_runs
 
 app = typer.Typer(add_completion=False, help="iGEM api.igem.org scraper")
 console = Console()
@@ -43,7 +43,10 @@ def init_db_cmd():
 def fetch_competitions_cmd():
     """Fetch all competition years from the API and upsert into DB."""
     cfg = load_config()
-    comps = asyncio.run(fetch_competitions(cfg))
+    archive = ResponseArchive(cfg)
+    run_id = archive.start_run("competitions")
+    comps = asyncio.run(fetch_competitions(cfg, run_id=run_id))
+    archive.finish_run(run_id)
     for c in sorted(comps, key=lambda x: x["year"]):
         console.print(f"  {c['year']}  {c['uuid']}")
     console.print(f"[green]Upserted {len(comps)} competitions[/green]")
@@ -55,10 +58,15 @@ def fetch_awards_cmd():
     cfg = load_config()
     engine = get_engine(cfg)
     init_db(engine)
+    archive = ResponseArchive(cfg)
+    run_id = archive.start_run("awards")
     competitions = asyncio.run(fetch_competitions(cfg))
     for competition in sorted(competitions, key=lambda item: item["year"]):
         console.print(f"  → awards {competition['year']} …")
-        asyncio.run(fetch_competition_awards(cfg, competition["uuid"]))
+        asyncio.run(
+            fetch_competition_awards(cfg, competition["uuid"], run_id=run_id)
+        )
+    archive.finish_run(run_id)
     console.print("[green]Award catalogues refreshed[/green]")
 
 
@@ -177,14 +185,32 @@ def validate_cmd(
 @app.command("validate-export")
 def validate_export_cmd(
     export: Path = typer.Argument(..., help="Frontend JSON snapshot to validate"),
+    ignore_stale_live: bool = typer.Option(
+        False,
+        "--ignore-stale-live",
+        help="Skip live-year freshness findings (pull-request pipelines only; "
+        "default-branch pushes must always run the full gate).",
+    ),
 ):
     """Validate a publishable JSON snapshot without requiring the working DB."""
-    issues = validate_export(export)
+    issues = validate_export(export, ignore_stale_live=ignore_stale_live)
     if issues:
         for issue in issues:
             console.print(f"[red]  - {issue}[/red]")
         raise typer.Exit(code=1)
     console.print(f"[green]Export integrity, status, and freshness gates passed: {export}[/green]")
+
+
+@app.command("runs")
+def runs_cmd():
+    """List recent archive runs (newest first) for inspection."""
+    cfg = load_config()
+    for run in list_runs(cfg):
+        console.print(
+            f"run={run['id']} kind={run['kind']} status={run['status']} "
+            f"responses={run['response_count']} "
+            f"started={run['started_at']} finished={run['finished_at']}"
+        )
 
 
 @app.command("replay")

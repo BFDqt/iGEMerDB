@@ -9,6 +9,33 @@ from pathlib import Path
 from playwright.sync_api import Page, sync_playwright
 
 
+def pick_showcase_team() -> dict:
+    """Deterministically pick a visible gold-medal winner from the snapshot.
+
+    Never hardcodes a team id: upstream can retire any given team at any
+    time, and this script only asserts structural properties of the detail
+    route.
+    """
+    project_root = Path(__file__).resolve().parents[2]
+    snapshot = json.loads(
+        (project_root / "public" / "data" / "igem.json").read_text(encoding="utf-8")
+    )
+    visible = {t["id"]: t for t in snapshot["teams"] if t.get("default_visible", True)}
+    gold_ids = {
+        r["team_id"]
+        for r in snapshot.get("team_awards", [])
+        if r.get("decision") == "winner"
+        and r.get("award_type") == "medal"
+        and r.get("award_subtype") == "gold"
+        and r["team_id"] in visible
+    }
+    return visible[sorted(gold_ids)[0]]
+
+
+SHOWCASE = pick_showcase_team()
+
+
+
 BASE_URL = os.getenv("BASE_URL", "http://127.0.0.1:43178").rstrip("/")
 OUTPUT = Path(os.getenv("PREMIUM_UI_ARTIFACT_DIR", "output/ui-premium"))
 
@@ -147,7 +174,7 @@ def main() -> None:
 
         mobile = browser.new_context(viewport={"width": 390, "height": 844})
         mobile_page = mobile.new_page()
-        settle(mobile_page, "/teams/5587")
+        settle(mobile_page, f"/teams/{SHOWCASE['id']}")
         assert mobile_page.title() != "iGEMerDB — iGEM 竞赛资料库"
         assert_no_document_overflow(mobile_page)
         facts_columns = mobile_page.locator(".entity-facts").evaluate(

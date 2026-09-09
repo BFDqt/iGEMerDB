@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import gc
+import hashlib
 import json
 import tempfile
 import time
@@ -54,6 +55,7 @@ class ArchiveRoundTripTests(unittest.TestCase):
     def test_record_and_replay_a_roster_response(self) -> None:
         run_id = self.archive.start_run("teams:2026")
         body = json.dumps({"data": [{"uuid": "row-1"}]}).encode("utf-8")
+        self.archive  # keep reference explicit
 
         self.archive.record(
             run_id,
@@ -84,12 +86,10 @@ class ArchiveRoundTripTests(unittest.TestCase):
         )
         self.assertEqual(replayed["http_status"], 200)
         self.assertEqual(replayed["run_id"], run_id)
-        # The stored hash is verifiable against the replayed bytes.
-        import hashlib
-
-        canonical = json.dumps(replayed["payload"], separators=(",", ":")).encode()
-        self.assertNotEqual(canonical, b"")
-        self.assertEqual(len(replayed["sha256"]), 64)
+        # The stored hash must verify against the exact archived bytes.
+        self.assertEqual(
+            replayed["sha256"], hashlib.sha256(body).hexdigest()
+        )
 
     def test_newest_response_wins_for_replay(self) -> None:
         first = self.archive.start_run("teams:2026")
@@ -155,6 +155,26 @@ class ArchiveRoundTripTests(unittest.TestCase):
         self.assertIsNone(latest_payload(self.cfg, "team_roster", team_id=1))
 
 
+class ClientSurfaceTests(unittest.TestCase):
+    def test_real_client_exposes_every_method_ingest_uses(self) -> None:
+        # The ingest integration test runs against a fake client; this pins
+        # the real class so a missing wrapper fails here, not mid-harvest.
+        from igem_scraper.api_client import IgemApiClient
+
+        for method in (
+            "get_competitions",
+            "get_competition_teams_with_meta",
+            "get_competition_awards",
+            "get_team_detail_with_meta",
+            "get_team_roster_with_meta",
+            "get_team_awards_with_meta",
+        ):
+            self.assertTrue(
+                callable(getattr(IgemApiClient, method, None)),
+                f"IgemApiClient is missing {method}",
+            )
+
+
 class IngestArchiveIntegrationTests(unittest.TestCase):
     """A full ingest pass through a fake client must archive every phase."""
 
@@ -204,8 +224,12 @@ class IngestArchiveIntegrationTests(unittest.TestCase):
                 return None
 
             async def get_competition_teams_with_meta(self, _uuid: str):
-                payload = [{"id": 7, "name": "Team Seven", "status": "accepted"}]
-                return payload, self._meta(json.dumps(payload))
+                page_one = [{"id": 7, "name": "Team Seven", "status": "accepted"}]
+                page_two = [{"id": 8, "name": "Team Eight", "status": "accepted"}]
+                return page_one + page_two, [
+                    self._meta(json.dumps(page_one)),
+                    self._meta(json.dumps(page_two)),
+                ]
 
             async def get_team_detail_with_meta(self, _team_id: int):
                 payload = {"id": 7, "name": "Team Seven", "year": 2026}
@@ -221,6 +245,10 @@ class IngestArchiveIntegrationTests(unittest.TestCase):
 
             async def get_competition_awards(self, _uuid: str):
                 return []
+
+            async def get_competition_awards_with_meta(self, _uuid: str):
+                payload: list[dict] = []
+                return payload, self._meta(json.dumps(payload))
 
             @staticmethod
             def _meta(payload: str):
@@ -248,6 +276,16 @@ class IngestArchiveIntegrationTests(unittest.TestCase):
         self.assertIn("team_detail", endpoints)
         self.assertIn("team_roster", endpoints)
         self.assertIn("team_awards", endpoints)
+
+        # Every pagination page must be archived, not just the last one.
+        with Session(self.engine) as session:
+            pages = session.execute(
+                text(
+                    "SELECT count(*) FROM raw_response "
+                    "WHERE endpoint = 'competition_teams'"
+                )
+            ).scalar_one()
+        self.assertEqual(pages, 2)
 
         # Phase-1 completion criterion: a displayed team's roster response
         # can be located and replayed from the archive.

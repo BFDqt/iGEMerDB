@@ -33,6 +33,11 @@ export default [
     settings: { react: { version: 'detect' } },
     rules: {
       ...tsPlugin.configs.recommended.rules,
+      // Restore the plugin:react/recommended + jsx-runtime rule surface the
+      // legacy .eslintrc enabled; dropping it would silently narrow lint.
+      // eslint-plugin-react 7.x ships the recommended rule map in the
+      // legacy shape; the rules themselves run fine under flat config.
+      ...reactPlugin.configs.recommended.rules,
       // TypeScript itself guarantees defined names; no-undef only produces
       // false positives for ambient DOM/lib types used in type positions.
       'no-undef': 'off',
@@ -41,6 +46,9 @@ export default [
         { argsIgnorePattern: '^_' },
       ],
       'react/prop-types': 'off',
+      // The new JSX transform makes these two meaningless.
+      'react/react-in-jsx-scope': 'off',
+      'react/jsx-uses-react': 'off',
     },
   },
   prettier,

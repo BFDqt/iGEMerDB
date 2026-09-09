@@ -63,9 +63,16 @@ jobs:
       - name: Scraper unit tests
         run: npm run test:scraper
 
+      # Pull requests may carry an aging snapshot: structural checks stay
+      # mandatory, freshness is enforced on default-branch pushes only.
       - name: Validate published snapshot
         run: |
-          npm run validate:data
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            FRESHNESS_FLAG="--ignore-stale-live"
+          else
+            FRESHNESS_FLAG=""
+          fi
+          npm run validate:data -- $FRESHNESS_FLAG
           npm run validate:web-data
 
       - name: Install Chromium

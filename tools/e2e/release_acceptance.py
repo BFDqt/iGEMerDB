@@ -31,6 +31,39 @@ STATUS_COUNTS = {
     for status in {team.get("status") for team in RAW_TEAMS}
 }
 
+def pick_showcase_team(snapshot: dict) -> dict:
+    """Deterministically pick a visible gold-medal winner (Best Wiki first).
+
+    Never hardcodes a team id: upstream can retire any given team at any
+    time; the showcase assertions derive from the picked team's own results.
+    """
+    visible = {t["id"]: t for t in snapshot["teams"] if t.get("default_visible", True)}
+    best_wiki: list[dict] = []
+    gold: list[dict] = []
+    seen: set[int] = set()
+    for result in snapshot.get("team_awards", []):
+        team = visible.get(result["team_id"])
+        if team is None or result.get("decision") != "winner":
+            continue
+        if result.get("award_type") != "medal" or result.get("award_subtype") != "gold":
+            continue
+        if team["id"] not in visible:
+            continue
+        title = (result.get("title") or "").lower()
+        if team["id"] not in seen:
+            seen.add(team["id"])
+            gold.append(team)
+        if "best wiki" in title:
+            best_wiki.append(team)
+    candidates = sorted(best_wiki or gold, key=lambda t: t["id"])
+    if not candidates:
+        raise RuntimeError("no visible gold-medal team found for e2e fixtures")
+    return candidates[0]
+
+
+SHOWCASE = pick_showcase_team(SNAPSHOT)
+
+
 INVALID_INSTITUTION_NAMES = {
     "college",
     "company",
@@ -281,7 +314,9 @@ def main() -> None:
             "home": run_slow_route(
                 browser, "/", "让竞赛记录，成为可以查证的公共档案。"
             ),
-            "teamDetail": run_slow_route(browser, "/teams/5587", "Aachen"),
+            "teamDetail": run_slow_route(
+                browser, f"/teams/{SHOWCASE['id']}", SHOWCASE["name"]
+            ),
             "people": run_slow_route(browser, "/people", "公开成员"),
         }
 
@@ -327,7 +362,7 @@ def main() -> None:
         expect(page.get_by_text("未公开 / 无返回", exact=True)).to_be_visible()
         page.screenshot(path=OUTPUT / "competition-desktop.png", full_page=False)
 
-        navigate_to_heading(page, "/teams/5587", "Aachen")
+        navigate_to_heading(page, f"/teams/{SHOWCASE['id']}", SHOWCASE["name"])
         expect(page.get_by_text("来源与更新", exact=True)).to_be_visible()
         expect(page.get_by_text("GOLD", exact=True)).to_be_visible()
         page.screenshot(path=OUTPUT / "team-desktop.png", full_page=True)

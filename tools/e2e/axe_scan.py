@@ -40,8 +40,16 @@ def build_routes() -> list[tuple[str, str]]:
         ("/about", "about"),
         ("/record-that-does-not-exist", "not-found"),
     ]
-    team = next(t for t in SNAPSHOT["teams"] if t["id"] == 5587)
-    routes.append((f"/teams/{team['id']}", "team-detail"))
+    gold_ids = {
+        result["team_id"]
+        for result in SNAPSHOT.get("team_awards", [])
+        if result.get("decision") == "winner"
+        and result.get("award_type") == "medal"
+        and result.get("award_subtype") == "gold"
+        and result["team_id"] in VISIBLE_TEAM_IDS
+    }
+    team_id = sorted(gold_ids or VISIBLE_TEAM_IDS)[0]
+    routes.append((f"/teams/{team_id}", "team-detail"))
 
     membership_counts: dict[str, int] = {}
     for entry in SNAPSHOT["roster"]:
