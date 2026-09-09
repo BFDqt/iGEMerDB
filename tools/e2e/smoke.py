@@ -50,25 +50,29 @@ def load_expected() -> dict[str, int]:
 def pick_showcase_team(snapshot: dict) -> dict:
     """Deterministically pick the demo detail team from the live snapshot.
 
-    Prefers a visible gold-medal winner whose results mention Best Wiki so the
-    long-standing assertions (name, GOLD, Best Wiki) stay data-backed; falls
-    back to any visible gold winner. Never hardcodes a team id: upstream can
+    Prefers a visible team holding BOTH a gold medal and a Best Wiki result
+    (the long-standing smoke assertions: name, GOLD, Best Wiki); falls back
+    to any visible gold winner. Never hardcodes a team id: upstream can
     retire any given team at any time.
     """
     visible = {t["id"]: t for t in snapshot["teams"] if t.get("default_visible", True)}
-    best_wiki: list[dict] = []
-    gold: list[dict] = []
+    stats: dict[int, dict] = {}
     for result in snapshot.get("team_awards", []):
         team = visible.get(result["team_id"])
         if team is None or result.get("decision") != "winner":
             continue
-        title = (result.get("title") or "").lower()
+        entry = stats.setdefault(team["id"], {"gold": False, "best_wiki": False, "team": team})
         if result.get("award_type") == "medal" and result.get("award_subtype") == "gold":
-            if team["id"] not in [t["id"] for t in gold]:
-                gold.append(team)
-            if "best wiki" in title and team["id"] not in [t["id"] for t in best_wiki]:
-                best_wiki.append(team)
-    candidates = sorted(best_wiki or gold, key=lambda t: t["id"])
+            entry["gold"] = True
+        if "best wiki" in (result.get("title") or "").lower():
+            entry["best_wiki"] = True
+    candidates = sorted(
+        (info["team"] for info in stats.values() if info["gold"] and info["best_wiki"]),
+        key=lambda t: t["id"],
+    ) or sorted(
+        (info["team"] for info in stats.values() if info["gold"]),
+        key=lambda t: t["id"],
+    )
     if not candidates:
         raise RuntimeError("no visible gold-medal team found for e2e fixtures")
     return candidates[0]
@@ -213,16 +217,22 @@ def run_desktop(browser, issues: list[str]) -> dict[str, int]:
     expect(page.get_by_text("按 Esc 关闭", exact=True)).to_be_visible(
         timeout=60_000
     )
-    search.fill("Aachen")
-    result = page.locator('.search-results a[href^="/teams/"]').first
+    search.fill(SHOWCASE["name"])
+    result = page.locator(
+        f'.search-results a[href="/teams/{SHOWCASE["id"]}"]'
+    )
     expect(result).to_be_visible()
     result.click()
-    expect(page.get_by_role("heading", name="Aachen", exact=True)).to_be_visible()
+    expect(
+        page.get_by_role("heading", name=SHOWCASE["name"], exact=True)
+    ).to_be_visible()
     assert "/teams/" in page.url
 
     page.goto(f"{BASE_URL}/teams/{SHOWCASE['id']}")
     wait_for_app(page)
-    expect(page.get_by_role("heading", name="Aachen", exact=True)).to_be_visible()
+    expect(
+        page.get_by_role("heading", name=SHOWCASE["name"], exact=True)
+    ).to_be_visible()
     detail_text = page.locator("#main-content").inner_text()
     assert "GOLD" in detail_text
     assert "Best Wiki" in detail_text
