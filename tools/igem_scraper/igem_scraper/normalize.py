@@ -50,7 +50,11 @@ def team_name_norm(team_name: str | None) -> str:
     - Remove extra whitespace
     - Strip common punctuation differences: underscores, smart quotes, fullwidth chars
     """
-    v = normalize_text(team_name)
+    import unicodedata
+
+    # Fullwidth letters/digits (common in East Asian team names) must fold
+    # onto their ASCII counterparts or cross-year matching splits them.
+    v = unicodedata.normalize("NFKC", normalize_text(team_name))
     v = v.lower()
     # Dash variants
     v = v.replace("\u2013", "-").replace("\u2014", "-").replace("\u2015", "-")

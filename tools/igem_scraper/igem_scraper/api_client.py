@@ -67,7 +67,26 @@ async def get_competitions(
         if len(batch) < _PAGE_SIZE:
             break
         page += 1
+
+    _assert_complete_listing(results, total, "competitions")
     return results
+
+
+def _assert_complete_listing(
+    results: list, total: int | None, path_like: str
+) -> None:
+    """Refuse to hand back a truncated listing.
+
+    Callers treat the returned list as the authoritative roster of a
+    competition (rows missing here get unlisted). A short page must never
+    silently masquerade as the complete set.
+    """
+    if total is not None and len(results) < int(total):
+        raise RuntimeError(
+            f"incomplete listing from {path_like}: got {len(results)} rows, "
+            f"API reported total {total}"
+        )
+
 
 
 async def get_competition_teams(
@@ -95,6 +114,7 @@ async def get_competition_teams(
         if len(batch) < _PAGE_SIZE:
             break
         page += 1
+    _assert_complete_listing(results, total, f"competitions/{competition_uuid}/teams")
     return results
 
 
@@ -196,6 +216,7 @@ async def get_competitions_with_meta(
         if len(batch) < _PAGE_SIZE:
             break
         page += 1
+    _assert_complete_listing(results, total, "competitions")
     return results, metas
 
 
@@ -280,6 +301,9 @@ async def get_competition_teams_with_meta(
         if len(batch) < _PAGE_SIZE:
             break
         page += 1
+    _assert_complete_listing(
+        results, total, f"competitions/{competition_uuid}/teams"
+    )
     return results, metas
 
 

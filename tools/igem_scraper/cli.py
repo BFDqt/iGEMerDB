@@ -19,7 +19,12 @@ from igem_scraper.team_ingest import (
 )
 from igem_scraper.export_raw import export_frontend_raw
 from igem_scraper.validate import validate_database, validate_export
-from igem_scraper.archive import ResponseArchive, latest_payload, list_runs
+from igem_scraper.archive import (
+    ResponseArchive,
+    latest_payload,
+    list_runs,
+    prune_archive,
+)
 
 app = typer.Typer(add_completion=False, help="iGEM api.igem.org scraper")
 console = Console()
@@ -45,7 +50,11 @@ def fetch_competitions_cmd():
     cfg = load_config()
     archive = ResponseArchive(cfg)
     run_id = archive.start_run("competitions")
-    comps = asyncio.run(fetch_competitions(cfg, run_id=run_id))
+    try:
+        comps = asyncio.run(fetch_competitions(cfg, run_id=run_id))
+    except Exception:
+        archive.finish_run(run_id, status="failed")
+        raise
     archive.finish_run(run_id)
     for c in sorted(comps, key=lambda x: x["year"]):
         console.print(f"  {c['year']}  {c['uuid']}")
@@ -60,12 +69,16 @@ def fetch_awards_cmd():
     init_db(engine)
     archive = ResponseArchive(cfg)
     run_id = archive.start_run("awards")
-    competitions = asyncio.run(fetch_competitions(cfg))
-    for competition in sorted(competitions, key=lambda item: item["year"]):
-        console.print(f"  → awards {competition['year']} …")
-        asyncio.run(
-            fetch_competition_awards(cfg, competition["uuid"], run_id=run_id)
-        )
+    try:
+        competitions = asyncio.run(fetch_competitions(cfg))
+        for competition in sorted(competitions, key=lambda item: item["year"]):
+            console.print(f"  → awards {competition['year']} …")
+            asyncio.run(
+                fetch_competition_awards(cfg, competition["uuid"], run_id=run_id)
+            )
+    except Exception:
+        archive.finish_run(run_id, status="failed")
+        raise
     archive.finish_run(run_id)
     console.print("[green]Award catalogues refreshed[/green]")
 
@@ -202,9 +215,19 @@ def validate_export_cmd(
 
 
 @app.command("runs")
-def runs_cmd():
+def runs_cmd(
+    prune: int = typer.Option(
+        0,
+        "--prune",
+        help="Keep only the newest N runs per kind (and their responses) "
+        "and delete the rest. Destructive.",
+    ),
+):
     """List recent archive runs (newest first) for inspection."""
     cfg = load_config()
+    if prune > 0:
+        removed = prune_archive(cfg, keep=prune)
+        console.print(f"[green]pruned {removed} runs[/green]")
     for run in list_runs(cfg):
         console.print(
             f"run={run['id']} kind={run['kind']} status={run['status']} "

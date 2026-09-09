@@ -73,3 +73,7 @@ curl -s <PUBLIC_URL>/.release   # 必须输出 <sha>
 - 本地 Windows 开发：4093–4192 等端口段可能被系统排除（重启后漂移），
   preview/e2e 端口冲突时先查
   `netsh interface ipv4 show excludedportrange protocol=tcp`。
+- 归档保留：`cli.py runs --prune <N>` 每个 kind 只保留最近 N 个 run 及其
+  响应，建议随数据刷新周期性执行（每次全量刷新约新增 1,300 条响应）。
+- 导出内存：export-raw 当前全量载入后一次性序列化，数据持续增长时需改造
+  为流式写出（已登记，非近期风险）。

@@ -50,11 +50,17 @@ def migrate_schema(engine: Engine) -> None:
     inspector = inspect(engine)
     if "team" in inspector.get_table_names():
         team_columns = {column["name"] for column in inspector.get_columns("team")}
+        # Only backfill when this migration actually adds the columns —
+        # unconditionally re-running the backfill on every connect would
+        # rewrite healthy rows (and boolean comparisons like "= 1" are
+        # illegal on PostgreSQL).
+        freshly_added_is_listed = False
         if "is_listed" not in team_columns:
             with engine.begin() as connection:
                 if engine.dialect.name in ("sqlite", "postgresql"):
+                    freshly_added_is_listed = True
                     connection.exec_driver_sql(
-                        "ALTER TABLE team ADD COLUMN is_listed BOOLEAN NOT NULL DEFAULT 1"
+                        "ALTER TABLE team ADD COLUMN is_listed BOOLEAN NOT NULL DEFAULT TRUE"
                     )
                     if engine.dialect.name == "sqlite":
                         connection.exec_driver_sql(
@@ -91,27 +97,28 @@ def migrate_schema(engine: Engine) -> None:
                         f"ALTER TABLE team ADD COLUMN {name} {sql_type}"
                     )
 
-            # Legacy booleans did not retain when a phase last succeeded.  Use
-            # the closest honest timestamp we have instead of pretending the
-            # migration time was a fresh upstream fetch.
-            connection.exec_driver_sql(
-                "UPDATE team SET listed_at = COALESCE(listed_at, created_at) "
-                "WHERE is_listed = 1"
-            )
-            connection.exec_driver_sql(
-                "UPDATE team SET listed_at = created_at "
-                "WHERE listed_at = updated_at AND created_at IS NOT NULL"
-            )
-            for phase in ("detail", "roster", "awards"):
+            if freshly_added_is_listed:
+                # Legacy booleans did not retain when a phase last succeeded.
+                # Use the closest honest timestamp we have instead of
+                # pretending the migration time was a fresh upstream fetch.
                 connection.exec_driver_sql(
-                    f"UPDATE team SET {phase}_fetched_at = "
-                    f"COALESCE({phase}_fetched_at, updated_at) "
-                    f"WHERE {phase}_fetched = 1"
+                    "UPDATE team SET listed_at = COALESCE(listed_at, created_at) "
+                    "WHERE is_listed IS TRUE"
                 )
                 connection.exec_driver_sql(
-                    f"UPDATE team SET {phase}_fetch_error = fetch_error "
-                    f"WHERE {phase}_fetch_error IS NULL AND fetch_error IS NOT NULL"
+                    "UPDATE team SET listed_at = created_at "
+                    "WHERE listed_at = updated_at AND created_at IS NOT NULL"
                 )
+                for phase in ("detail", "roster", "awards"):
+                    connection.exec_driver_sql(
+                        f"UPDATE team SET {phase}_fetched_at = "
+                        f"COALESCE({phase}_fetched_at, updated_at) "
+                        f"WHERE {phase}_fetched = TRUE"
+                    )
+                    connection.exec_driver_sql(
+                        f"UPDATE team SET {phase}_fetch_error = fetch_error "
+                        f"WHERE {phase}_fetch_error IS NULL AND fetch_error IS NOT NULL"
+                    )
 
     inspector = inspect(engine)
     if "award" not in inspector.get_table_names():

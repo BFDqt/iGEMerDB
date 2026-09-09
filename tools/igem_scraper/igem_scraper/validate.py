@@ -252,6 +252,49 @@ def validate_export(path: Path, ignore_stale_live: bool = False) -> tuple[str, .
     if len(award_keys) != len(set(award_keys)):
         issues.append("duplicate competition/award keys in export")
     award_key_set = set(award_keys)
+
+    # JSON has no unique constraints: catch duplicate relationship keys that
+    # would silently double-count memberships and award results.
+    roster_keys = [
+        (row.get("team_id"), row.get("member_uuid"), row.get("role_api") or "")
+        for row in roster
+    ]
+    if len(roster_keys) != len(set(roster_keys)):
+        issues.append(
+            f"{len(roster_keys) - len(set(roster_keys))} duplicate roster keys in export"
+        )
+    result_keys = [(row.get("team_id"), row.get("award_uuid")) for row in team_awards]
+    if len(result_keys) != len(set(result_keys)):
+        issues.append(
+            f"{len(result_keys) - len(set(result_keys))} duplicate team-award keys in export"
+        )
+
+    # Roster rows must agree with the per-team member counts the stats run
+    # computed; a mismatch means stats are stale relative to the roster.
+    roster_count_by_team: dict = {}
+    roster_year_mismatches = 0
+    for row in roster:
+        team = team_by_id.get(row.get("team_id"))
+        if team is None:
+            continue
+        roster_count_by_team[row["team_id"]] = (
+            roster_count_by_team.get(row["team_id"], 0) + 1
+        )
+        if row.get("year") is not None and team.get("year") not in (None, row.get("year")):
+            roster_year_mismatches += 1
+    stale_member_counts = sum(
+        (team_by_id.get(team_id) or {}).get("all_member_count") not in (None, count)
+        for team_id, count in roster_count_by_team.items()
+    )
+    if stale_member_counts:
+        issues.append(
+            f"{stale_member_counts} teams have all_member_count stale vs roster rows"
+        )
+    if roster_year_mismatches:
+        issues.append(
+            f"{roster_year_mismatches} roster rows reference a different year than their team"
+        )
+
     missing_award_definitions = 0
     for result in team_awards:
         team = team_by_id.get(result.get("team_id"))

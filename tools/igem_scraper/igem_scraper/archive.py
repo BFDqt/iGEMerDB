@@ -14,7 +14,7 @@ import gzip
 import hashlib
 from datetime import datetime, timezone
 
-from sqlalchemy import desc, select, update
+from sqlalchemy import delete, desc, select, update
 from sqlalchemy.orm import Session as OrmSession
 
 from .db import get_engine
@@ -108,6 +108,30 @@ def list_runs(cfg, limit: int = 20) -> list[dict]:
             }
             for row in rows
         ]
+
+
+def prune_archive(cfg, keep: int) -> int:
+    """Delete every run beyond the newest ``keep`` per kind, including its
+    archived responses. Returns the number of runs removed."""
+    engine = get_engine(cfg)
+    removed = 0
+    with OrmSession(engine) as session:
+        runs = session.scalars(
+            select(ScrapeRun).order_by(ScrapeRun.kind, desc(ScrapeRun.id))
+        ).all()
+        newest_per_kind: dict[str, int] = {}
+        for run in runs:
+            count = newest_per_kind.get(run.kind, 0)
+            if count < keep:
+                newest_per_kind[run.kind] = count + 1
+                continue
+            session.execute(
+                delete(RawResponse).where(RawResponse.run_id == run.id)
+            )
+            session.delete(run)
+            removed += 1
+        session.commit()
+    return removed
 
 
 def latest_payload(

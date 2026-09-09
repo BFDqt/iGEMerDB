@@ -289,3 +289,95 @@ class ValidationTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ExportIntegrityExtraTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temp_dir = tempfile.TemporaryDirectory(dir=Path(__file__).parent)
+
+    def tearDown(self) -> None:
+        import gc as _gc
+
+        self.temp_dir.cleanup()
+        _gc.collect()
+
+    def test_export_validation_flags_duplicate_keys_and_stale_counts(self) -> None:
+        base = {
+            "meta": {"schema_version": 3, "generated_at": "", "source": "", "coverage": []},
+            "competitions": [{"uuid": "c-2025", "year": 2025, "status": "archived"}],
+            "institutions": [],
+            "teams": [
+                {
+                    "id": 1,
+                    "name": "A",
+                    "year": 2025,
+                    "competition_uuid": "c-2025",
+                    "status": "accepted",
+                    "export_category": "accepted",
+                    "default_visible": True,
+                    "all_member_count": 2,
+                }
+            ],
+            "members": [
+                {"uuid": "m1", "name": "One"},
+                {"uuid": "m2", "name": "Two"},
+            ],
+            "roster": [
+                {
+                    "team_id": 1,
+                    "member_uuid": "m1",
+                    "year": 2025,
+                    "role_api": "student",
+                    "role_inferred": "Student",
+                    "is_student": True,
+                },
+                # duplicate (team, member, role) key
+                {
+                    "team_id": 1,
+                    "member_uuid": "m1",
+                    "year": 2025,
+                    "role_api": "student",
+                    "role_inferred": "Student",
+                    "is_student": True,
+                },
+                # wrong year for the team
+                {
+                    "team_id": 1,
+                    "member_uuid": "m2",
+                    "year": 2024,
+                    "role_api": "student",
+                    "role_inferred": "Student",
+                    "is_student": True,
+                },
+            ],
+            "awards": [],
+            "team_awards": [
+                {
+                    "team_id": 1,
+                    "award_uuid": "a1",
+                    "title": "X",
+                    "decision": "winner",
+                },
+                {
+                    "team_id": 1,
+                    "award_uuid": "a1",
+                    "title": "X",
+                    "decision": "winner",
+                },
+            ],
+        }
+        path = Path(self.temp_dir.name) / "dup.json"
+        path.write_text(json.dumps(base), encoding="utf-8")
+        issues = validate_export(path)
+        joined = "\n".join(issues)
+        self.assertIn("duplicate roster keys in export", joined)
+        self.assertIn("duplicate team-award keys in export", joined)
+        self.assertIn("roster rows reference a different year", joined)
+        # roster has 2 rows but all_member_count says 2 → no stale-count issue;
+        # remove one roster row to make the counts disagree
+        base["roster"] = base["roster"][:1]
+        path.write_text(json.dumps(base), encoding="utf-8")
+        issues = validate_export(path)
+        self.assertTrue(
+            any("stale vs roster rows" in issue for issue in issues), issues
+        )

@@ -186,6 +186,12 @@ async def fetch_competitions(
             # The API also exposes Venture Foundry competitions. This archive is
             # intentionally the iGEM Competition dataset, whose year is unique.
             if comp.get("type") not in (None, "igem"):
+                log.info(
+                    "skipped competition type=%r year=%s uuid=%s",
+                    comp.get("type"),
+                    comp.get("year"),
+                    comp.get("uuid"),
+                )
                 continue
             row = {
                 "uuid": comp["uuid"],
@@ -280,43 +286,37 @@ async def fetch_competition_teams(
             )
             session.execute(stmt)
 
-            # CanonicalTeam (by norm name)
+            # CanonicalTeam (by norm name).  An empty norm would collapse
+            # every nameless team onto one canonical row — skip instead.
+            if not norm:
+                team_ids.append(int(t["id"]))
+                continue
             can_stmt = (
                 _insert(CanonicalTeam)
                 .values(name_norm=norm, display_name=t.get("name", ""), needs_review=False)
-                .on_conflict_do_nothing(index_elements=["name_norm"])
+                .on_conflict_do_update(
+                    index_elements=["name_norm"],
+                    set_={"display_name": t.get("name", "")},
+                )
             )
             session.execute(can_stmt)
+            canonical_id = session.execute(
+                select(CanonicalTeam.canonical_id).where(CanonicalTeam.name_norm == norm)
+            ).scalar_one()
+            map_stmt = (
+                _insert(TeamCanonicalMap)
+                .values(team_id=int(t["id"]), canonical_id=canonical_id)
+                .on_conflict_do_update(
+                    index_elements=["team_id"],
+                    set_={"canonical_id": canonical_id},
+                )
+            )
+            session.execute(map_stmt)
 
             team_ids.append(int(t["id"]))
 
         session.commit()
 
-    # TeamCanonicalMap: build AFTER canonical rows are committed (separate session)
-    with Session(engine) as session2:
-        # Bulk load canonical ids by norm name to avoid N+1 SELECTs
-        norms = list({team_name_norm(t.get("name", "")) for t in teams_data})
-        canon_rows = session2.execute(
-            select(CanonicalTeam.name_norm, CanonicalTeam.canonical_id)
-            .where(CanonicalTeam.name_norm.in_(norms))
-        ).all()
-        canon_by_norm = {r.name_norm: r.canonical_id for r in canon_rows}
-
-        _insert2 = get_insert(engine)
-        for t in teams_data:
-            norm = team_name_norm(t.get("name", ""))
-            cid = canon_by_norm.get(norm)
-            if cid is not None:
-                map_stmt = (
-                    _insert2(TeamCanonicalMap)
-                    .values(team_id=int(t["id"]), canonical_id=cid)
-                    .on_conflict_do_update(
-                        index_elements=["team_id"],
-                        set_={"canonical_id": cid},
-                    )
-                )
-                session2.execute(map_stmt)
-        session2.commit()
 
     log.info("Upserted %d teams for year %d", len(team_ids), year)
     return team_ids

@@ -63,6 +63,10 @@ python tools/igem_scraper/cli.py validate-export public/data/igem.json
 # 重放某条记录的原始上游响应（gzip 存档，含 URL/状态/SHA-256）
 python tools/igem_scraper/cli.py replay team_roster --team-id 5587
 python tools/igem_scraper/cli.py replay competition_teams --competition-uuid <uuid>
+
+# 巡检归档 run；按 kind 保留最近 N 个 run 并删除其余（破坏性）
+python tools/igem_scraper/cli.py runs
+python tools/igem_scraper/cli.py runs --prune 3
 ```
 
 ## 原始响应存档（可重放管线）
