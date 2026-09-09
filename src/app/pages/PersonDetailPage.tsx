@@ -8,6 +8,7 @@ import {
   Info,
   MapPin,
 } from 'lucide-react';
+import { useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { database } from '../data';
 import { formatCountry, formatRole, initials } from '../format';
@@ -22,6 +23,19 @@ export function PersonDetailPage() {
   const person = database.personById.get(personId ?? '');
   const apiBase = database.sourceUrl.replace(/\/$/, '');
   useDocumentTitle(person?.name ?? '成员未找到');
+  // People pages carry real names: keep individual profiles out of search
+  // engines unless a person is on an official public roster page anyway.
+  // This is an explicit, documented product decision (docs/DATASET.md).
+  useEffect(() => {
+    const meta = document.createElement('meta');
+    meta.name = 'robots';
+    meta.content = 'noindex';
+    document.head.appendChild(meta);
+    return () => {
+      meta.remove();
+    };
+  }, []);
+
 
   if (!person) {
     return (

@@ -1,0 +1,28 @@
+name: 数据纠错 / 撤回申请
+description: 报告队伍、成员、机构或奖项数据与官方记录不一致，或申请撤回展示
+labels: ["data-correction"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        请提供可核实的依据（官方页面链接、名单截图等）。
+        涉及个人撤回展示的请求不需要公开任何身份证件信息，维护者会私下核实。
+  - type: dropdown
+    id: kind
+    attributes:
+      label: 类型
+      options:
+        - 队伍信息错误（名称/年份/状态）
+        - 成员信息错误或撤回展示申请
+        - 机构归属错误
+        - 奖项结果错误
+        - 其他
+    validations:
+      required: true
+  - type: textarea
+    id: detail
+    attributes:
+      label: 具体内容与依据
+      description: 哪条记录、哪里错了、依据是什么（官方链接等）
+    validations:
+      required: true

@@ -99,7 +99,9 @@ premium UI、弱网 release acceptance）与严格 axe 无障碍扫描
 ## 2.0.0-beta.1 交付物
 
 - 文件：`igemerdb-2.0.0-beta.1.zip`（`dist/` 生产产物，337 个文件），随 GitHub
-  Release `v2.0.0-beta.1` 发布，同时在 GitHub Pages 提供公开访问
+  Release `v2.0.0-beta.1` 发布。注意：GitHub Pages 由同一 commit 以子路径
+  base（`/iGEMerDB/`）重新构建部署，资源路径与 zip 内的根路径构建不同——
+  两者经由同一门禁验证，但不是同一份文件。
 - 大小：21,425,409 bytes
 - SHA-256：`42EF002E393ECC0F75C749FE2002E1ACBEF42177EAC109745321BB5AADECF35C`
 - 打包时间：2026-09-09，对应 2026-09-08 刷新的 live 快照（5,280 支默认可见队伍、

@@ -264,7 +264,7 @@ export function AboutPage() {
             </p>
             <a
               className="button-link secondary"
-              href="https://github.com/OIerDb-ng/OIerDb/issues/new?labels=data-correction&title=%5BData%20correction%5D%20"
+              href="https://github.com/BFDqt/iGEMerDB/issues/new?labels=data-correction&title=%5BData+correction%5D+"
               target="_blank"
               rel="noreferrer noopener"
             >

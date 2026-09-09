@@ -6,7 +6,7 @@ iGEM 队伍、公开成员、机构与奖项资料的可检索索引。
 
 本次重构将旧 OIerDb 前端和无法运行的 iGEM 示例层完全移出运行路径，以抓取器导出的真实快照为单一事实源。产品不再生成缺乏依据的“评分”或“排名”，缺失数据会在界面中明确标注。
 
-当前快照生成于 2026-09-09，覆盖 2004–2026 共 23 届赛事。原始审计层保留 5,518 支队伍，其中 5,280 支 accepted 队伍进入默认产品视图；191 支 withdrawn、28 支 disqualified 和 19 条 Example/Test 记录被明确隔离但不物理删除。快照还保存 81,823 位公开成员、106,496 条原始名单关系和 7,517 条队伍奖项结果。数据来自 [iGEM Public API](https://api.igem.org/v1/competitions?page=1)，名单公开范围遵循 iGEM 的[官方队伍名单说明](https://competition.igem.org/registration/team-roster)。逐年覆盖、例外和校验摘要见 [数据快照报告](docs/DATASET.md)。
+当前快照由官方 API 周期性刷新（覆盖 2004–2026 共 23 届赛事；live 赛季数据持续变化）。精确计数、逐年覆盖、隔离类别与角色分布以 [数据快照报告](docs/DATASET.md) 为准——本文档不再硬编码会随每次刷新过期的数字。
 
 ## 当前交付
 
@@ -24,12 +24,25 @@ iGEM 队伍、公开成员、机构与奖项资料的可检索索引。
 
 ## 本地开发
 
-要求 Node.js 20.19+（或兼容的 22/24）和 npm 10+。
+前端要求 Node.js 20.19+（或兼容的 22/24）和 npm 10+。
 
 ```powershell
 npm ci
 npm run dev
 ```
+
+完整门禁（`npm run check:all`）与浏览器验收还需要一次性准备：
+
+```powershell
+python -m venv .venv
+.venv\Scripts\pip install -r tools/igem_scraper/requirements.txt
+.venv\Scripts\python -m playwright install chromium
+copy tools\igem_scraper\.env.example tools\igem_scraper\.env
+```
+
+e2e 脚本默认访问 `127.0.0.1:4173`：先 `npm run build && npm run preview`
+再运行 `npm run test:e2e`（Windows 本机若端口被系统排除段占用，
+换端口并用 `BASE_URL` 指定，见 docs/OPERATIONS.md）。
 
 Vite 会输出本地访问地址。浏览器启动只读取压缩后不超过 500 KiB 的 `/data/web/core.json`；队伍和成员详情按稳定哈希桶读取，完整人员索引仅在人员目录或全站检索需要时加载。`public/data/web/` 分片不入库，`predev` / `prebuild` 会从已提交的完整快照自动重建。`/data/igem.json` 作为完整离线审计快照保留，不再阻塞每个入口。浏览器不会在运行时请求数据库或密钥。
 

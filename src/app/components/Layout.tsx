@@ -179,7 +179,7 @@ export function Layout({ children }: { children: ReactNode }) {
               iGEM 官网
             </a>
             <a
-              href="https://github.com/OIerDb-ng/OIerDb"
+              href="https://github.com/BFDqt/iGEMerDB"
               target="_blank"
               rel="noreferrer noopener"
             >
