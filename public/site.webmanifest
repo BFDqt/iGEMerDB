@@ -2,13 +2,13 @@
   "name": "iGEMerDB — iGEM 竞赛资料库",
   "short_name": "iGEMerDB",
   "description": "可检索的 iGEM 队伍、公开成员、机构与奖项资料库。",
-  "start_url": "/",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#f1f0ea",
   "theme_color": "#075c4b",
   "icons": [
     {
-      "src": "/logo.svg",
+      "src": "logo.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"

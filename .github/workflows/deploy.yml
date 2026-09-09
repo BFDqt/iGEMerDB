@@ -33,7 +33,7 @@ jobs:
 
     steps:
       - name: Download the exact artifact that passed Quality Gate
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: production-dist-${{ github.event.workflow_run.head_sha }}
           path: dist
@@ -50,7 +50,7 @@ jobs:
           printf '%s\n' "$RELEASE_SHA" > dist/.release
 
       - name: Stage release in Tokyo
-        uses: easingthemes/ssh-deploy@v6.0.1
+        uses: easingthemes/ssh-deploy@5d8aeab1a56041e269567e67a08ce00df324a617 # v6.0.1
         with:
           ARGS: '-rlgoDzvc --delete'
           SOURCE: 'dist/'
@@ -64,7 +64,7 @@ jobs:
           SCRIPT_BEFORE_REQUIRED: true
 
       - name: Stage release in Hong Kong
-        uses: easingthemes/ssh-deploy@v6.0.1
+        uses: easingthemes/ssh-deploy@5d8aeab1a56041e269567e67a08ce00df324a617 # v6.0.1
         with:
           ARGS: '-rlgoDzvc --delete'
           SOURCE: 'dist/'
@@ -78,7 +78,7 @@ jobs:
           SCRIPT_BEFORE_REQUIRED: true
 
       - name: Atomically activate Tokyo release
-        uses: easingthemes/ssh-deploy@v6.0.1
+        uses: easingthemes/ssh-deploy@5d8aeab1a56041e269567e67a08ce00df324a617 # v6.0.1
         with:
           ARGS: '-rlgoDzvc'
           SOURCE: 'dist/.release'
@@ -98,7 +98,7 @@ jobs:
           SCRIPT_AFTER_REQUIRED: true
 
       - name: Atomically activate Hong Kong release
-        uses: easingthemes/ssh-deploy@v6.0.1
+        uses: easingthemes/ssh-deploy@5d8aeab1a56041e269567e67a08ce00df324a617 # v6.0.1
         with:
           ARGS: '-rlgoDzvc'
           SOURCE: 'dist/.release'
@@ -128,11 +128,20 @@ jobs:
           for url in "$PUBLIC_URL" "$PUBLIC_URL_2"; do
             curl --fail --location --retry 4 --retry-all-errors \
               --max-time 20 "$url/data/web/manifest.json" >/dev/null
+            served="$(curl --fail --location --retry 4 --retry-all-errors --max-time 20 "$url/.release")"
+            if [ "$served" != "$RELEASE_SHA" ]; then
+              echo "::error::$url is serving $served, expected $RELEASE_SHA"
+              exit 1
+            fi
           done
+
+      - name: Health-check configuration notice
+        if: ${{ env.PUBLIC_URL == '' || env.PUBLIC_URL_2 == '' }}
+        run: echo "::warning::PUBLIC_URL / PUBLIC_URL_2 are not configured; the release was staged and activated, but no HTTP health check or SHA verification ran for this deploy."
 
       - name: Roll back both regions if activation or health check fails
         if: failure()
-        uses: easingthemes/ssh-deploy@v6.0.1
+        uses: easingthemes/ssh-deploy@5d8aeab1a56041e269567e67a08ce00df324a617 # v6.0.1
         with:
           ARGS: '-rlgoDzvc'
           SOURCE: 'dist/.release'
@@ -153,7 +162,7 @@ jobs:
 
       - name: Roll back Hong Kong region if release failed
         if: failure()
-        uses: easingthemes/ssh-deploy@v6.0.1
+        uses: easingthemes/ssh-deploy@5d8aeab1a56041e269567e67a08ce00df324a617 # v6.0.1
         with:
           ARGS: '-rlgoDzvc'
           SOURCE: 'dist/.release'

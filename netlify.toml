@@ -1,11 +1,16 @@
 [build]
-command = "npm ci && npm run check && npm run validate:web-data"
+# Netlify is a secondary channel: build + data checks only (the full gate
+# runs in GitHub CI); pinning Node keeps the image aligned with engines.
+command = "npm ci && npm run build:data && npx vite build && npm run validate:web-data"
 publish = "dist"
+
+[build.environment]
+NODE_VERSION = "22"
 
 [[headers]]
   for = "/*"
   [headers.values]
-    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://static.igem.org; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
     Permissions-Policy = "camera=(), microphone=(), geolocation=()"
     Referrer-Policy = "strict-origin-when-cross-origin"
     X-Content-Type-Options = "nosniff"

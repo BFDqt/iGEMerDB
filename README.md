@@ -121,7 +121,7 @@ npm ci
 npm run check
 ```
 
-质量工作流会上传已经通过浏览器验收的 `dist/`，部署工作流只下载这一个产物。SSH 发布先把两个区域都写入 `releases/<commit>`，再原子切换 `current` 软链接；激活或健康检查失败时恢复上一版本。服务器站点根目录需要指向配置的 `<REMOTE_PATH>/current`。`netlify.toml` 另包含 SPA 回退、分片缓存和基础安全响应头。
+质量工作流会上传已经通过浏览器验收的 `dist/`，部署工作流只下载这一个产物。当前**生产通道是 GitHub Pages**（Quality Gate 通过后自动部署）；SSH 双区域发布链路（staging → 原子切换 `current` → 健康检查 → 失败回滚）已实现但处于禁用状态——需要配置 `production` 环境密钥并完成一次真实演练后才可启用，详见 [运维手册](docs/OPERATIONS.md)。`netlify.toml` 另包含 SPA 回退、分片缓存和基础安全响应头，可作为备用通道。
 
 ## 许可与声明
 
