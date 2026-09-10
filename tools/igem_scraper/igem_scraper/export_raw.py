@@ -1,20 +1,12 @@
 """
 export_raw.py  —  Export DB contents as frontend-compatible raw JSON.
 
-Target shape consumed by frontend processData(raw):
-{
-  "meta": {schema_version, generated_at, source, coverage},
-  "competitions": [{uuid, year, wiki_slug, status}],
-  "institutions": [{id, name, country, city}],
-  "teams": [{id, name, year, section, country, city, region, wiki_url, medal,
-             canonical_id, institutions, all_member_count, student_member_count,
-             student_past_experience_count}],
-  "members": [{uuid, name, username, institution, title, affiliation, country,
-                igem_since}],
-  "roster": [{team_id, member_uuid, year, role_inferred, is_student}],
-  "awards": [{uuid, competition_uuid, title, description}],
-  "team_awards": [{team_id, award_uuid, title, decision, award_type, ...}]
-}
+The authoritative field dictionary, enums and versioning rules live in
+docs/EXPORT-CONTRACT.md; this module is the single writer of that format.
+Top-level shape: meta / competitions / institutions / teams / members /
+roster / awards / team_awards. Team rows additionally carry ingestion
+bookkeeping (fetch flags/timestamps/errors) and the publication projection
+(export_category / default_visible).
 """
 from __future__ import annotations
 

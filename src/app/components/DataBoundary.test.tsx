@@ -66,6 +66,12 @@ describe('DataBoundary', () => {
   it('keeps a pending shard visible as a labelled loading state', async () => {
     stubFetch((url) => {
       if (url.endsWith('core.json')) return source;
+      if (url.endsWith('manifest.json')) {
+        return {
+          entity_counts: { teams: 26 },
+          buckets: { team: 64, person: 256 },
+        };
+      }
       return new Promise(() => {});
     });
     await loadCoreDatabase();
@@ -111,6 +117,12 @@ describe('DataBoundary', () => {
   it('exposes the team loading state politely', async () => {
     stubFetch((url) => {
       if (url.endsWith('core.json')) return source;
+      if (url.endsWith('manifest.json')) {
+        return {
+          entity_counts: { teams: 26 },
+          buckets: { team: 64, person: 256 },
+        };
+      }
       return new Promise(() => {});
     });
     await loadCoreDatabase();

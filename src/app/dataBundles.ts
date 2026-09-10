@@ -10,8 +10,6 @@ type CompactPerson = [
   affiliation: string,
   country: string,
   igemSince: number | null,
-  firstSeenYear: number | null,
-  lastSeenYear: number | null,
 ];
 
 type CompactRoster = [
@@ -22,6 +20,18 @@ type CompactRoster = [
   apiRole: string,
   isStudent: 0 | 1,
 ];
+
+interface ManifestFile {
+  entity_counts?: {
+    teams?: number;
+    members?: number;
+    roster?: number;
+  };
+  buckets?: {
+    team?: number;
+    person?: number;
+  };
+}
 
 interface CompactPeopleBundle {
   schema_version: number;
@@ -69,8 +79,10 @@ function expandBundle(bundle: CompactPeopleBundle) {
     affiliation: person[5] || null,
     country: person[6] || null,
     igem_since: person[7],
-    first_seen_year: person[8],
-    last_seen_year: person[9],
+    // first/last seen are recomputed by data.ts from memberships; shipping
+    // them as all-null columns in every bundle was dead weight.
+    first_seen_year: null,
+    last_seen_year: null,
   }));
   const expandedRoster: RawRosterEntry[] = bundle.roster.flatMap((entry) => {
     const person = expandedMembers[entry[1]];
@@ -136,7 +148,31 @@ function loadOnce(key: string, path: string): Promise<Database> {
 }
 
 export async function loadCoreDatabase(): Promise<Database> {
-  const core = await fetchJson<RawDataset>('core.json');
+  // The manifest is the shard contract: bucket layout and entity counts.
+  // Validating it at startup turns a silent layout drift (frontend constants
+  // vs freshly generated shards) into a visible error instead of empty
+  // rosters rendered without any message.
+  const [core, manifest] = await Promise.all([
+    fetchJson<RawDataset>('core.json'),
+    fetchJson<ManifestFile>('manifest.json').catch(() => undefined),
+  ]);
+  if (manifest) {
+    if (
+      manifest.buckets?.team !== TEAM_BUCKETS ||
+      manifest.buckets?.person !== PERSON_BUCKETS
+    ) {
+      throw new Error(
+        `分片布局不匹配：manifest 声明 team=${manifest.buckets?.team}/person=${manifest.buckets?.person}，前端为 ${TEAM_BUCKETS}/${PERSON_BUCKETS}`,
+      );
+    }
+    const declared = core.meta?.entity_counts;
+    if (
+      declared?.teams !== undefined &&
+      manifest.entity_counts?.teams !== declared.teams
+    ) {
+      throw new Error('manifest 与 core.json 的实体计数不一致');
+    }
+  }
   coreDataset = core;
   members.clear();
   roster.clear();

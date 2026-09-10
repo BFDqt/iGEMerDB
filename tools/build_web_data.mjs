@@ -132,8 +132,6 @@ function compactPeople(members, roster) {
       member.affiliation ?? '',
       member.country ?? '',
       member.igem_since ?? null,
-      member.first_seen_year ?? null,
-      member.last_seen_year ?? null,
     ]),
     roster: roster
       .filter((entry) => localIndex.has(entry.member_uuid))

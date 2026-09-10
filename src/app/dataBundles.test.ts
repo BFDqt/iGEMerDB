@@ -53,6 +53,41 @@ describe('dataBundles runtime loading', () => {
     expect(getDatabaseRevision()).toBe(0);
   });
 
+  it('validates the manifest shard contract at startup', async () => {
+    stubFetch((url) => {
+      if (url.endsWith('core.json')) return source;
+      if (url.endsWith('manifest.json')) {
+        return {
+          entity_counts: { teams: 26, members: 80_027, roster: 103_718 },
+          buckets: { team: 64, person: 256 },
+        };
+      }
+      return undefined;
+    });
+    await expect(loadCoreDatabase()).resolves.toMatchObject({
+      stats: { teamCount: 26 },
+    });
+  });
+
+  it('fails loudly when the manifest declares a different bucket layout', async () => {
+    stubFetch((url) => {
+      if (url.endsWith('core.json')) return source;
+      if (url.endsWith('manifest.json')) {
+        return {
+          entity_counts: { teams: 26 },
+          buckets: { team: 128, person: 256 },
+        };
+      }
+      return undefined;
+    });
+    await expect(loadCoreDatabase()).rejects.toThrow('分片布局不匹配');
+  });
+
+  it('tolerates a missing manifest (older deployments)', async () => {
+    stubFetch((url) => (url.endsWith('core.json') ? source : undefined));
+    await expect(loadCoreDatabase()).resolves.toBeDefined();
+  });
+
   it('loads the core dataset, resets partial state, and publishes a revision', async () => {
     const fetchMock = stubFetch((url) =>
       url.endsWith('core.json') ? source : undefined,
