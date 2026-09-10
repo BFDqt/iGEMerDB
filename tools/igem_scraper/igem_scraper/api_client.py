@@ -31,7 +31,10 @@ async def _get_json_with_meta(
         from urllib.parse import urlencode
         url += "?" + urlencode(params)
     result = await fetch_text_with_meta(client, limiter, url, settings)
-    return json.loads(result.text), result
+    try:
+        return json.loads(result.text), result
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"non-JSON response from {result.url}: {exc}") from exc
 
 
 async def _get_json(
@@ -333,7 +336,9 @@ class IgemApiClient:
         self._client = httpx.AsyncClient(
             headers={"User-Agent": self._settings.user_agent},
             timeout=self._settings.timeout_seconds,
-            follow_redirects=True,
+            # The API serves 200 directly; following redirects would let a
+            # hijacked record be silently replaced by attacker-hosted JSON.
+            follow_redirects=False,
         )
         return self
 

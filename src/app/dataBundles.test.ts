@@ -98,6 +98,34 @@ describe('dataBundles runtime loading', () => {
     expect(getDatabaseRevision()).toBeGreaterThan(revisionBefore);
   });
 
+  it('keeps every roster row of a team when merging one bundle', async () => {
+    stubFetch((url) =>
+      url.endsWith('core.json')
+        ? source
+        : url.endsWith('team/36.json')
+          ? buildCompactBundle(
+              [
+                memberRow('mem-two-a', 'Member Two A'),
+                memberRow('mem-two-b', 'Member Two B'),
+              ],
+              [
+                // Same team, two different members — a naive dedup key
+                // without the member uuid would collapse these to one.
+                [5587, 0, 2025, 'Student', 'student', 1],
+                [5587, 1, 2025, 'PI', 'primary-pi', 0],
+              ],
+            )
+          : undefined,
+    );
+    await loadCoreDatabase();
+    await ensureTeamPeople(5587);
+
+    const memberships = database.teamById.get(5587)?.memberships ?? [];
+    const ids = memberships.map((entry) => entry.person.id);
+    expect(ids).toContain('mem-two-a');
+    expect(ids).toContain('mem-two-b');
+  });
+
   it('reuses one bucket request for every team hashing into it', async () => {
     stubFetch((url) =>
       url.endsWith('core.json')

@@ -27,6 +27,12 @@ class NormalizationTests(unittest.TestCase):
         self.assertEqual(normalize_name("  Alice Chen "), "alice chen")
         self.assertEqual(normalize_name("清华大学"), "清华大学")
 
+    def test_fullwidth_characters_fold_via_nfkc(self) -> None:
+        # NFKC exists for East Asian fullwidth input; without it the same
+        # team name would split into two canonical rows across years.
+        self.assertEqual(team_name_norm("Ａａｌｔｏ"), "aalto")
+        self.assertEqual(team_name_norm("Ｔｅａｍ　Ｘ"), "team x")
+
     def test_team_dash_and_underscore_normalization(self) -> None:
         self.assertEqual(team_name_norm("Aalto–Helsinki"), "aalto-helsinki")
         self.assertEqual(team_name_norm(" Team_Name "), "team name")

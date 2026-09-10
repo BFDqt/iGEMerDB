@@ -340,6 +340,16 @@ class ExportIntegrityExtraTests(unittest.TestCase):
                     "role_inferred": "Student",
                     "is_student": True,
                 },
+                # legal: same (team, member) in a different role is a
+                # distinct roster row, not a duplicate
+                {
+                    "team_id": 1,
+                    "member_uuid": "m1",
+                    "year": 2025,
+                    "role_api": "instructor",
+                    "role_inferred": "Advisor",
+                    "is_student": False,
+                },
                 # wrong year for the team
                 {
                     "team_id": 1,

@@ -25,6 +25,21 @@ export function normalizeText(value: string | null | undefined): string {
 
 export const UNKNOWN_CATEGORY = 'unknown';
 
+// Upstream-provided URLs (team wiki links, API base) flow into href sinks.
+// Only http(s) is acceptable; anything else (javascript:, data:, ...) is
+// dropped rather than rendered.
+export function safeExternalUrl(value: string | null | undefined): string {
+  if (!value) return '';
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+      ? parsed.toString()
+      : '';
+  } catch {
+    return '';
+  }
+}
+
 const invalidInstitutionNames = new Set([
   'college',
   'company',
@@ -222,7 +237,7 @@ export function buildDatabase(raw: RawDataset): Database {
       program: item.program ?? '',
       villageUuid: item.village_uuid ?? '',
       isRemote: item.is_remote ?? false,
-      wikiUrl: item.wiki_url ?? '',
+      wikiUrl: safeExternalUrl(item.wiki_url),
       medal: item.medal ?? '',
       canonicalId: item.canonical_id ?? null,
       publishedMemberCount: item.published_member_count ?? 0,
@@ -544,7 +559,9 @@ export function buildDatabase(raw: RawDataset): Database {
     teamAwards,
     competitions,
     generatedAt: raw.meta?.generated_at ?? '',
-    sourceUrl: raw.meta?.source ?? 'https://api.igem.org/v1',
+    // Display-only metadata; hrefs use the hardcoded constant below so a
+    // tampered meta.source can never become a link target.
+    sourceUrl: safeExternalUrl(raw.meta?.source) || 'https://api.igem.org/v1',
     stats: {
       year: years.length ? Math.max(...years) : 0,
       minYear: years.length ? Math.min(...years) : 0,

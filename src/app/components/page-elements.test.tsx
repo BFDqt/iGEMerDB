@@ -96,6 +96,14 @@ describe('Pagination', () => {
     expect(screen.getByRole('button', { name: '上一页' })).toBeEnabled();
   });
 
+  it('keeps a non-integral final page reachable', () => {
+    render(<Pagination page={5} total={55} pageSize={10} onChange={vi.fn()} />);
+    // ceil(55/10) = 6: a floor() mutation would make the last 5 records
+    // unreachable while every divisible fixture still passes.
+    expect(screen.getByRole('button', { name: '6' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '下一页' })).toBeEnabled();
+  });
+
   it('disables the previous button on the first page', () => {
     render(<Pagination page={1} total={500} pageSize={50} onChange={vi.fn()} />);
     expect(screen.getByRole('button', { name: '上一页' })).toBeDisabled();

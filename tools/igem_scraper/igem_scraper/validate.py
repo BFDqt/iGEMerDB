@@ -255,6 +255,21 @@ def validate_export(path: Path, ignore_stale_live: bool = False) -> tuple[str, .
 
     # JSON has no unique constraints: catch duplicate relationship keys that
     # would silently double-count memberships and award results.
+    # URL protocol whitelist: team wiki links and the declared source are
+    # rendered as hrefs by the frontend, so anything that is not http(s)
+    # (javascript:, data:, ...) must never ship in the export.
+    unsafe_team_urls = sum(
+        1
+        for team in teams
+        if team.get("wiki_url")
+        and not str(team["wiki_url"]).lower().startswith(("http://", "https://"))
+    )
+    if unsafe_team_urls:
+        issues.append(f"{unsafe_team_urls} team wiki URLs use a non-http(s) scheme")
+    source_url = str(meta.get("source") or "")
+    if source_url and not source_url.lower().startswith(("http://", "https://")):
+        issues.append("meta.source uses a non-http(s) scheme")
+
     roster_keys = [
         (row.get("team_id"), row.get("member_uuid"), row.get("role_api") or "")
         for row in roster
