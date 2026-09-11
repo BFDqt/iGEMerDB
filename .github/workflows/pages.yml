@@ -54,6 +54,16 @@ jobs:
           # so deep links and refreshes reach the router.
           cp dist/index.html dist/404.html
 
+      - name: Use Python 3.12 for the browser smoke
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: '3.12'
+
+      - name: Install browser smoke dependencies
+        run: |
+          python -m pip install playwright
+          python -m playwright install --with-deps chromium
+
       - name: Subpath smoke test (the artifact users will actually get)
         shell: bash
         run: |
