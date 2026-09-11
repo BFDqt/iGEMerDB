@@ -10,6 +10,11 @@ from playwright.sync_api import Page, expect, sync_playwright
 
 
 BASE_URL = os.getenv("BASE_URL", "http://127.0.0.1:4173").rstrip("/")
+# Subpath deployments (GitHub Pages) 404 the slash-less form instead of
+# redirecting, so the initial home navigation goes to BASE_URL + '/'.
+# Every other goto composes f"{BASE_URL}/path" — keep BASE_URL slash-free.
+from urllib.parse import urlsplit
+URL_PATH_BASE = urlsplit(BASE_URL).path.rstrip('/')
 ARTIFACT_DIR = Path(os.getenv("E2E_ARTIFACT_DIR", "output/e2e"))
 ARTIFACT_DIR.mkdir(parents=True, exist_ok=True)
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -178,7 +183,7 @@ def run_desktop(browser, issues: list[str]) -> dict[str, int]:
     data_requests: list[str] = []
     page.on("request", lambda request: data_requests.append(request.url))
     started = time.perf_counter()
-    page.goto(BASE_URL, wait_until="domcontentloaded", timeout=60_000)
+    page.goto(BASE_URL + '/', wait_until="domcontentloaded", timeout=60_000)
     wait_for_app(page)
     ready_ms = round((time.perf_counter() - started) * 1000)
 
@@ -219,10 +224,13 @@ def run_desktop(browser, issues: list[str]) -> dict[str, int]:
     )
     search.fill(SHOWCASE["name"])
     result = page.locator(
-        f'.search-results a[href="/teams/{SHOWCASE["id"]}"]'
+        f'.search-results a[href="{URL_PATH_BASE}/teams/{SHOWCASE["id"]}"]'
     )
     expect(result).to_be_visible()
+    print("RESULT DOM HREF:", result.get_attribute("href"))
+    print("URL BEFORE CLICK:", page.url)
     result.click()
+    print("URL AFTER CLICK:", page.url)
     expect(
         page.get_by_role("heading", name=SHOWCASE["name"], exact=True)
     ).to_be_visible()
@@ -335,9 +343,32 @@ def main() -> None:
     issues: list[str] = []
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
-        metrics = run_desktop(browser, issues)
-        run_detail_routes(browser, issues)
-        run_mobile(browser, issues)
+        try:
+            metrics = run_desktop(browser, issues)
+            run_detail_routes(browser, issues)
+            run_mobile(browser, issues)
+        except Exception:
+            # Failure diagnostics: keep the last known page state.
+            for context in browser.contexts:
+                for page in context.pages:
+                    try:
+                        print("FAILURE URL:", page.url)
+                        body = page.locator("body").inner_text()[:200]
+                        print("FAILURE BODY:", body.replace("\n", " | "))
+                        links = page.evaluate(
+                            """() => [...document.querySelectorAll('a')]
+                              .filter((a) => a.href.includes('/teams/1351'))
+                              .map((a) => a.getAttribute('href'))"""
+                        )
+                        print("1351 LINK HREFS:", links)
+                        print("FAILURE H1S:", page.evaluate("() => [...document.querySelectorAll('#main-content h1')].map(h => h.textContent)"))
+                        page.screenshot(
+                            path=str(ARTIFACT_DIR / "failure.png"),
+                            full_page=True,
+                        )
+                    except Exception:
+                        pass
+            raise
         browser.close()
 
     if issues:

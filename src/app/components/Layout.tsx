@@ -40,6 +40,11 @@ export function Layout({ children }: { children: ReactNode }) {
   useEffect(() => {
     setMenuOpen(false);
     window.scrollTo({ top: 0, behavior: 'instant' });
+    // Client-side navigation leaves focus on the removed link; move it to
+    // the main region so keyboard and screen-reader users start at the top
+    // of the new page instead of hunting for their place.
+    const main = document.getElementById('main-content');
+    main?.focus({ preventScroll: true });
   }, [location.pathname]);
 
   // Keyboard support for the mobile navigation: Escape closes it, focus
@@ -148,7 +153,7 @@ export function Layout({ children }: { children: ReactNode }) {
         )}
       </header>
 
-      <main id="main-content">{children}</main>
+      <main id="main-content" tabIndex={-1}>{children}</main>
 
       <footer className="site-footer">
         <div className="footer-grid">

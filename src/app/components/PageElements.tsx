@@ -29,7 +29,8 @@ export function PageHeader({
   return (
     <header className="page-header">
       <div className="page-header-copy">
-        <span className="kicker">{kicker}</span>
+{/* Decorative English kickers duplicate the Chinese heading for screen readers. */}
+        <span className="kicker" aria-hidden="true">{kicker}</span>
         <h1>{title}</h1>
         {description && <p>{description}</p>}
       </div>

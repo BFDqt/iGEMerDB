@@ -249,14 +249,14 @@ export function TeamsPage() {
           <table className="data-table team-table">
             <thead>
               <tr>
-                <th>队伍</th>
-                <th>年份</th>
-                <th>地区</th>
-                <th>国家 / 地区</th>
-                <th>组别</th>
-                <th>状态</th>
-                <th className="numeric">公开成员</th>
-                <th aria-label="查看详情" />
+                <th scope="col">队伍</th>
+                <th scope="col">年份</th>
+                <th scope="col">地区</th>
+                <th scope="col">国家 / 地区</th>
+                <th scope="col">组别</th>
+                <th scope="col">状态</th>
+                <th scope="col" className="numeric">公开成员</th>
+                <th scope="col" aria-label="查看详情" />
               </tr>
             </thead>
             <tbody>

@@ -496,6 +496,10 @@ svg {
   font-size: 15px;
 }
 
+.hero-search input:focus-visible {
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
 .hero-search input::placeholder {
   color: #858d89;
 }
@@ -1009,6 +1013,10 @@ svg {
   background: transparent;
   color: var(--ink);
   font-size: 17px;
+}
+
+.search-dialog-head input:focus-visible {
+  box-shadow: inset 0 -2px 0 var(--accent);
 }
 
 .search-dialog-head button {

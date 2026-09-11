@@ -71,6 +71,17 @@ export function SearchDialog({
   }, [open]);
 
   useEffect(() => {
+    // Native showModal traps focus but does not lock background scrolling.
+    if (open) {
+      const previousOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = previousOverflow;
+      };
+    }
+  }, [open]);
+
+  useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
     if (open && !dialog.open) {
@@ -158,11 +169,14 @@ export function SearchDialog({
           </button>
         </div>
 
-        <div
-          id="global-search-results"
-          className="search-dialog-body"
-          aria-live="polite"
-        >
+        <p className="sr-only" aria-live="polite">
+          {results.length > 0
+            ? `${results.length} 条匹配结果`
+            : query.trim().length >= 2
+              ? '没有匹配的记录'
+              : ''}
+        </p>
+        <div id="global-search-results" className="search-dialog-body">
           {query.trim().length < 2 ? (
             <div className="search-prompt">
               <span>SEARCH INDEX</span>
