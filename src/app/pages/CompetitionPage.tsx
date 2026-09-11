@@ -50,9 +50,10 @@ export function CompetitionPage() {
   useDocumentTitle(`${year} 年度`);
   const regions = useMemo(
     () =>
-      countBy(teams.map((team) => team.region)).map(([label, value]) => ({
-        label: regionLabel(label),
+      countBy(teams.map((team) => team.region)).map(([raw, value]) => ({
+        label: regionLabel(raw),
         value,
+        raw,
       })),
     [teams],
   );
@@ -144,7 +145,14 @@ export function CompetitionPage() {
             <span className="kicker">REGION</span>
             <h2>区域分布</h2>
           </div>
-          <DistributionBars rows={regions} />
+          <DistributionBars
+            rows={regions}
+            hrefFor={(row) =>
+              row.raw === 'unknown'
+                ? undefined
+                : `/teams?year=${year}&region=${encodeURIComponent(row.raw)}`
+            }
+          />
         </section>
         <section className="analytics-panel">
           <div className="panel-heading">

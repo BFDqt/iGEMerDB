@@ -250,6 +250,23 @@ export function AboutPage() {
       <section className="privacy-section" id="privacy-corrections">
         <div>
           <span className="kicker">PRIVACY / CORRECTIONS</span>
+          <section className="about-section">
+            <h2>原始数据下载</h2>
+            <p>
+              完整审计快照可直接下载用于研究：本站的全部记录都在其中，字段字典见
+              仓库的 docs/EXPORT-CONTRACT.md。团队与成员详情页另提供记录级的来源端点
+              与最近成功抓取时间。
+            </p>
+            <ul>
+              <li>
+                <a href="data/igem.json" download>igem.json — 完整审计快照（约 43 MB）</a>
+              </li>
+              <li>
+                <a href="data/web/manifest.json" download>manifest.json — 分片清单与实体计数</a>
+              </li>
+            </ul>
+          </section>
+
           <h2>隐私、纠错与撤回</h2>
         </div>
         <div className="privacy-copy">

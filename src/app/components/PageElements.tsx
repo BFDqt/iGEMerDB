@@ -165,25 +165,34 @@ export function Pagination({
   );
 }
 
-export function DistributionBars({
+export function DistributionBars<T extends { label: string; value: number; detail?: string }>({
   rows,
+  hrefFor,
 }: {
-  rows: Array<{ label: string; value: number; detail?: string }>;
+  rows: T[];
+  hrefFor?: (row: T) => string | undefined;
 }) {
   const maximum = Math.max(...rows.map((row) => row.value), 1);
   return (
     <div className="distribution-bars">
-      {rows.map((row) => (
+      {rows.map((row) => {
+        const href = hrefFor?.(row);
+        return (
         <div className="distribution-row" key={row.label}>
           <div>
-            <span>{row.label}</span>
+            {href ? (
+              <Link to={href}>{row.label}</Link>
+            ) : (
+              <span>{row.label}</span>
+            )}
             <strong>{row.detail ?? row.value}</strong>
           </div>
           <div className="bar-track" aria-hidden="true">
             <span style={{ width: `${(row.value / maximum) * 100}%` }} />
           </div>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
