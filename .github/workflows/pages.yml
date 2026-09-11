@@ -50,6 +50,27 @@ jobs:
           npx vite build --base=/${GITHUB_REPOSITORY#*/}/
           test -f dist/data/web/core.json
           test -f dist/data/web/manifest.json
+          # GitHub Pages has no SPA rewrite: serve the app for unknown paths
+          # so deep links and refreshes reach the router.
+          cp dist/index.html dist/404.html
+
+      - name: Subpath smoke test (the artifact users will actually get)
+        shell: bash
+        run: |
+          npm run preview -- --host 127.0.0.1 --port 4901 --strictPort             --base=/${GITHUB_REPOSITORY#*/}/ > /tmp/igemerdb-pages-preview.log 2>&1 &
+          preview_pid=$!
+          trap 'kill "$preview_pid" 2>/dev/null || true' EXIT
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:4901/${GITHUB_REPOSITORY#*/}/ > /dev/null; then
+              break
+            fi
+            if [ "$attempt" -eq 30 ]; then
+              cat /tmp/igemerdb-pages-preview.log
+              exit 1
+            fi
+            sleep 1
+          done
+          BASE_URL=http://127.0.0.1:4901/${GITHUB_REPOSITORY#*/} npm run test:e2e
 
       - name: Configure Pages
         uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5

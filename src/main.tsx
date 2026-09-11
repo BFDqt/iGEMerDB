@@ -31,6 +31,11 @@ loadCoreDatabase()
     reactRoot.render(
       <React.StrictMode>
         <BrowserRouter
+          // Vite's base ("/iGEMerDB/" on GitHub Pages) must be the router's
+          // basename, or no pathname matches and every page renders as 404.
+          basename={
+            import.meta.env.BASE_URL.replace(/\/$/, '') || undefined
+          }
           future={{ v7_relativeSplatPath: true, v7_startTransition: true }}
         >
           <App />
